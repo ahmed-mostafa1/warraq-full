@@ -1,1 +1,70 @@
-<paste the file above>
+# -------------------------
+# OS / Editors / General
+# -------------------------
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.seed
+*.pid.lock
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# -------------------------
+# Root env (if any)
+# -------------------------
+.env
+.env.*
+!.env.example
+
+# =========================================================
+# BACKEND (Laravel)
+# =========================================================
+/backend/vendor/
+/backend/node_modules/           # just in case
+/backend/storage/
+/backend/bootstrap/cache/
+/backend/public/storage/         # symlink target
+
+/backend/.env
+/backend/.env.*
+!/backend/.env.example
+
+/backend/.phpunit.result.cache
+/backend/.php-cs-fixer.cache
+/backend/_ide_helper.php
+/backend/_ide_helper_models.php
+
+# Keep these tracked (do NOT ignore):
+# /backend/composer.json
+# /backend/composer.lock
+# /backend/phpunit.xml
+
+# =========================================================
+# FRONTEND (React)
+# =========================================================
+/frontend/node_modules/
+/frontend/build/
+/frontend/dist/
+/frontend/.cache/
+/frontend/.parcel-cache/
+/frontend/.vite/
+/frontend/coverage/
+/frontend/.eslintcache
+
+/frontend/.env
+/frontend/.env.*
+!/frontend/.env.example
+
+# Keep these tracked (do NOT ignore):
+# /frontend/package.json
+# /frontend/package-lock.json
+# /frontend/yarn.lock
+# /frontend/pnpm-lock.yaml
