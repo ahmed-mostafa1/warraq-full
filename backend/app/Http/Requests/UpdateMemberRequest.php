@@ -47,4 +47,24 @@ class UpdateMemberRequest extends FormRequest
             'notes' => ['nullable', 'string'],
         ];
     }
+
+    /**
+     * Get the validation error messages for the defined rules.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'الاسم مطلوب.',
+            'name.max' => 'يجب ألا يزيد الاسم عن 150 حرفاً.',
+            'national_id.unique' => 'هذا الرقم القومي مستخدم بالفعل.',
+            'gender.in' => 'قيمة الحقل النوع غير صالحة.',
+            'religion.in' => 'قيمة الحقل الديانة غير صالحة.',
+            'dob.date' => 'يجب إدخال تاريخ ميلاد صحيح.',
+            'dob.before_or_equal' => 'تاريخ الميلاد يجب أن يكون في الماضي.',
+            'email.email' => 'يرجى إدخال بريد إلكتروني صحيح.',
+            'phone.max' => 'رقم الهاتف يجب ألا يزيد عن 11 رقماً.',
+        ];
+    }
 }

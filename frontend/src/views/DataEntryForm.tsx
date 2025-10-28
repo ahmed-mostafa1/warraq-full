@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { useForm, Controller } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
@@ -205,13 +206,35 @@ const DataEntryForm: React.FC = () => {
             }),
             type: "success",
           });
-        } catch {
+        } catch (error) {
+          console.error("Failed to update member", error);
+          let errorMessage = t("members.updateDuplicateError");
+
+          if (axios.isAxiosError(error)) {
+            const errors = error.response?.data?.errors;
+            const backendMessage =
+              error.response?.data?.message ||
+              error.response?.data?.error ||
+              error.response?.data?.error_message;
+
+            if (errors && typeof errors === "object") {
+              const firstError = Object.values(errors)
+                .flat()
+                .find((msg) => typeof msg === "string");
+              if (typeof firstError === "string") {
+                errorMessage = firstError;
+              }
+            } else if (typeof backendMessage === "string") {
+              errorMessage = backendMessage;
+            }
+          }
+
           addToast({
             title: t("common.error"),
-            message: t("members.updateDuplicateError"),
+            message: errorMessage,
             type: "error",
           });
-          setFormError(t("members.updateDuplicateError"));
+          setFormError(errorMessage);
           return;
         }
       } else {
@@ -228,13 +251,35 @@ const DataEntryForm: React.FC = () => {
             }),
             type: "success",
           });
-        } catch {
+        } catch (error) {
+          console.error("Failed to add member", error);
+          let errorMessage = t("members.addDuplicateError");
+
+          if (axios.isAxiosError(error)) {
+            const errors = error.response?.data?.errors;
+            const backendMessage =
+              error.response?.data?.message ||
+              error.response?.data?.error ||
+              error.response?.data?.error_message;
+
+            if (errors && typeof errors === "object") {
+              const firstError = Object.values(errors)
+                .flat()
+                .find((msg) => typeof msg === "string");
+              if (typeof firstError === "string") {
+                errorMessage = firstError;
+              }
+            } else if (typeof backendMessage === "string") {
+              errorMessage = backendMessage;
+            }
+          }
+
           addToast({
             title: t("common.error"),
-            message: t("members.addDuplicateError"),
+            message: errorMessage,
             type: "error",
           });
-          setFormError(t("members.addDuplicateError"));
+          setFormError(errorMessage);
           return;
         }
       }

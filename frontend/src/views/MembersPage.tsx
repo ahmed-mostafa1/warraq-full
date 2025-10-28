@@ -36,11 +36,6 @@ type FilterKey =
   | "membership_type"
   | "job";
 
-const EXCLUDED_MEMBERSHIP_TYPES = new Set([
-  "عضو مميز",
-  "عضو مميز جداً",
-]);
-
 const MembersPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -123,13 +118,13 @@ const MembersPage = () => {
       try {
         console.log("[MembersPage] fetching", params);
         const result = await listMembers(params);
-        const filteredRows = result.rows.filter((row) => {
-          const normalizedType = normalizeMembershipType(row.membership_type);
-          return !EXCLUDED_MEMBERSHIP_TYPES.has(normalizedType);
-        });
+        const normalizedRows = result.rows.map((row) => ({
+          ...row,
+          membership_type: normalizeMembershipType(row.membership_type),
+        }));
 
-        setAllRows(filteredRows);
-        const membersForStore = filteredRows.map(mapApiMemberToMember);
+        setAllRows(normalizedRows);
+        const membersForStore = normalizedRows.map(mapApiMemberToMember);
         dispatch(restoreMembers(membersForStore));
         setPage(1);
         setError(null);

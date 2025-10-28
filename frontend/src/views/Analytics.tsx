@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../store";
@@ -58,12 +58,14 @@ const Analytics: React.FC = () => {
   }, [fetchData]);
 
   // Filter members based on selected filters
-  const filteredMembers = members.filter((member: Member) => {
-    const matchesGender =
-      filters.gender === "all" || member.gender === filters.gender;
+  const filteredMembers = useMemo(() => {
+    return members.filter((member: Member) => {
+      const matchesGender =
+        filters.gender === "all" || member.gender === filters.gender;
 
-    return matchesGender;
-  });
+      return matchesGender;
+    });
+  }, [members, filters.gender]);
 
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-dark-background-primary">

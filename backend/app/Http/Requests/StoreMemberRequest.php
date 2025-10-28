@@ -41,4 +41,25 @@ class StoreMemberRequest extends FormRequest
         ];
     }
 
+    /**
+     * Get the validation error messages for the defined rules.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'الاسم مطلوب.',
+            'name.max' => 'يجب ألا يزيد الاسم عن 150 حرفاً.',
+            'national_id.unique' => 'هذا الرقم القومي مستخدم بالفعل.',
+            'national_id.min' => 'الرقم القومي يجب أن يتكون من 14 رقماً.',
+            'national_id.max' => 'الرقم القومي يجب أن يتكون من 14 رقماً.',
+            'gender.in' => 'قيمة الحقل النوع غير صالحة.',
+            'religion.in' => 'قيمة الحقل الديانة غير صالحة.',
+            'dob.date' => 'يجب إدخال تاريخ ميلاد صحيح.',
+            'dob.before_or_equal' => 'تاريخ الميلاد يجب أن يكون في الماضي.',
+            'email.email' => 'يرجى إدخال بريد إلكتروني صحيح.',
+        ];
+    }
+
 }

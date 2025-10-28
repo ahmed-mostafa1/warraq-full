@@ -10,8 +10,6 @@ export const MEMBERSHIP_TYPE_VALUES = [
   "سكرتير مساعد وحدة قاعدية",
   "سكرتير تنظيم وحدة قاعدية",
   "سكرتير عام وحدة قاعدية",
-  "عضو مميز",
-  "عضو مميز جداً",
 ] as const;
 
 export type MembershipType = (typeof MEMBERSHIP_TYPE_VALUES)[number];
@@ -28,8 +26,6 @@ export const MEMBERSHIP_TYPE_KEY_MAP: Record<MembershipType, string> = {
   "سكرتير مساعد وحدة قاعدية": "baseUnitAssistantSecretary",
   "سكرتير تنظيم وحدة قاعدية": "baseUnitOrganizationSecretary",
   "سكرتير عام وحدة قاعدية": "baseUnitSecretaryGeneral",
-  "عضو مميز": "premium",
-  "عضو مميز جداً": "vip",
 };
 
 const MEMBERSHIP_TYPE_LOOKUP: Record<string, MembershipType> = {
@@ -58,11 +54,6 @@ const MEMBERSHIP_TYPE_LOOKUP: Record<string, MembershipType> = {
   "سكرتير تنظيم وحدة قاعدية": "سكرتير تنظيم وحدة قاعدية",
   baseunitsecretarygeneral: "سكرتير عام وحدة قاعدية",
   "سكرتير عام وحدة قاعدية": "سكرتير عام وحدة قاعدية",
-  premium: "عضو مميز",
-  "عضو مميز": "عضو مميز",
-  vip: "عضو مميز جداً",
-  "عضو vip": "عضو مميز جداً",
-  "عضو مميز جداً": "عضو مميز جداً",
 };
 
 export const RELIGION_VALUES = ["مسلم", "مسيحي"] as const;
