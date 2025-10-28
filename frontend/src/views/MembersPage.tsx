@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
@@ -6,8 +6,15 @@ import TopNav from "../components/TopNav";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
-import { listMembers, deleteMember as deleteMemberApi, type ApiMember } from "../services/members";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import Select from "../components/ui/Select";
+import {
+  listMembers,
+  deleteMember as deleteMemberApi,
+  exportMembersExcel,
+  type ApiMember,
+  type MembersQueryParams,
+} from "../services/members";
+import { Eye, Edit, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { restoreMembers } from "../slices/membersSlice";
 import {
   normalizeMembershipType,
@@ -20,19 +27,50 @@ interface TableRow extends ApiMember {}
 
 const PAGE_SIZE = 20;
 
+type FilterKey =
+  | "name"
+  | "national_id"
+  | "gender"
+  | "religion"
+  | "unit"
+  | "membership_type"
+  | "job";
+
+const EXCLUDED_MEMBERSHIP_TYPES = new Set([
+  "عضو مميز",
+  "عضو مميز جداً",
+]);
+
 const MembersPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allRows, setAllRows] = useState<TableRow[]>([]);
   const [rows, setRows] = useState<TableRow[]>([]);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [draftSearch, setDraftSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState<FilterKey | "all">(
+    "all",
+  );
+  const initialLoadRef = useRef(false);
+  const filterOptions = useMemo(
+    () => [
+      { value: "all", label: "بحث شامل" },
+      { value: "name", label: "الاسم" },
+      { value: "national_id", label: "الرقم القومي" },
+      { value: "gender", label: "النوع" },
+      { value: "religion", label: "الديانة" },
+      { value: "unit", label: "الوحدة" },
+      { value: "membership_type", label: "نوع العضوية" },
+      { value: "job", label: "الوظيفة" },
+    ],
+    [],
+  );
 
-  const mapApiMemberToMember = (member: ApiMember): Member => {
+  const mapApiMemberToMember = useCallback((member: ApiMember): Member => {
     const membershipType = normalizeMembershipType(member.membership_type);
 
     const createdAt = member.created_at ?? new Date().toISOString();
@@ -40,14 +78,28 @@ const MembersPage = () => {
 
     const dob = member.dob ? new Date(member.dob) : null;
     const age = dob
-      ? Math.max(0, Math.floor((Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25)))
+      ? Math.max(
+          0,
+          Math.floor(
+            (Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+          ),
+        )
       : 0;
+
+    const rawGender = (member.gender ?? "").trim().toLowerCase();
+    const gender: Member["gender"] =
+      rawGender === "female" ||
+      rawGender === "f" ||
+      rawGender === "أنثى" ||
+      rawGender === "انثى"
+        ? "female"
+        : "male";
 
     return {
       id: String(member.id),
       fullName: member.name ?? "",
       nationalId: member.national_id ?? "",
-      gender: member.gender === "female" ? "female" : "male",
+      gender,
       phoneNumber: member.phone ?? "",
       landlineNumber: "",
       partyUnit: member.unit ?? "",
@@ -63,33 +115,91 @@ const MembersPage = () => {
       createdAt,
       updatedAt,
     };
-  };
-
-  const load = useCallback(async (term: string) => {
-    setIsLoading(true);
-    try {
-      console.log("[MembersPage] fetching", { search: term });
-      const result = await listMembers({ search: term || undefined });
-      setAllRows(result.rows);
-      const membersForStore = result.rows.map(mapApiMemberToMember);
-      dispatch(restoreMembers(membersForStore));
-      setPage(1);
-      setError(null);
-    } catch (err) {
-      console.error("[MembersPage] failed to load members", err);
-      setError("تعذر تحميل البيانات. حاول مرة أخرى.");
-    } finally {
-      setIsLoading(false);
-    }
   }, []);
+
+  const load = useCallback(
+    async (params: MembersQueryParams) => {
+      setIsLoading(true);
+      try {
+        console.log("[MembersPage] fetching", params);
+        const result = await listMembers(params);
+        const filteredRows = result.rows.filter((row) => {
+          const normalizedType = normalizeMembershipType(row.membership_type);
+          return !EXCLUDED_MEMBERSHIP_TYPES.has(normalizedType);
+        });
+
+        setAllRows(filteredRows);
+        const membersForStore = filteredRows.map(mapApiMemberToMember);
+        dispatch(restoreMembers(membersForStore));
+        setPage(1);
+        setError(null);
+      } catch (err) {
+        console.error("[MembersPage] failed to load members", err);
+        setError("تعذر تحميل البيانات. حاول مرة أخرى.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [dispatch, mapApiMemberToMember],
+  );
 
   useEffect(() => {
     console.log("[MembersPage] mount");
   }, []);
 
+  const searchPlaceholder = useMemo(() => {
+    switch (selectedFilter) {
+      case "name":
+        return "ابحث بالاسم";
+      case "national_id":
+        return "ابحث بالرقم القومي";
+      case "gender":
+        return "ابحث بالنوع (ذكر / أنثى)";
+      case "religion":
+        return "ابحث بالديانة";
+      case "unit":
+        return "ابحث باسم الوحدة";
+      case "membership_type":
+        return "ابحث بنوع العضوية";
+      case "job":
+        return "ابحث بالوظيفة";
+      default:
+        return "ابحث في جميع الحقول";
+    }
+  }, [selectedFilter]);
+
+  const currentQueryParams = useMemo<MembersQueryParams>(() => {
+    const params: MembersQueryParams = {};
+    const trimmed = searchTerm.trim();
+
+    if (!trimmed) {
+      return params;
+    }
+
+    if (selectedFilter === "all") {
+      params.search = trimmed;
+    } else {
+      (params as Record<FilterKey, string>)[selectedFilter] = trimmed;
+    }
+
+    return params;
+  }, [searchTerm, selectedFilter]);
+
   useEffect(() => {
-    void load(search);
-  }, [search, load]);
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      void load(currentQueryParams);
+      return;
+    }
+
+    const debounce = window.setTimeout(() => {
+      void load(currentQueryParams);
+    }, 350);
+
+    return () => {
+      window.clearTimeout(debounce);
+    };
+  }, [currentQueryParams, load]);
 
   useEffect(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -101,15 +211,26 @@ const MembersPage = () => {
     [allRows],
   );
 
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const term = draftSearch.trim();
-    setPage(1);
-    setSearch(term);
-    if (term === search) {
-      void load(term);
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const blob = await exportMembersExcel("xlsx", currentQueryParams);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      link.download = `members-${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[MembersPage] export failed", err);
+      alert("تعذر تصدير البيانات. حاول مرة أخرى.");
+    } finally {
+      setIsExporting(false);
     }
-  };
+  }, [currentQueryParams]);
 
   const handleEdit = (member: TableRow) => {
     navigate(`/entry/${member.id}`);
@@ -142,24 +263,56 @@ const MembersPage = () => {
         <TopNav onMenuClick={() => setSidebarOpen((prev) => !prev)} />
 
         <main className="flex-1 overflow-y-auto p-6">
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               الأعضاء
             </h1>
           </div>
           <Card className="mb-4 p-4">
-            <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 sm:flex-row">
-              <Input
-                name="search"
-                value={draftSearch}
-                onChange={(event) => setDraftSearch(event.target.value)}
-                placeholder="ابحث بالاسم أو الرقم القومي"
-                className="flex-1"
-              />
-              <Button type="submit" disabled={isLoading}>
-                بحث
-              </Button>
-            </form>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-wrap items-center gap-3">
+                <Input
+                  name="search"
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder={searchPlaceholder}
+                  className="flex-1 min-w-[200px]"
+                />
+                <Select
+                  value={selectedFilter}
+                  onChange={(event) => {
+                    const value = event.target.value as FilterKey | "all";
+                    setSelectedFilter(value);
+                    setPage(1);
+                  }}
+                  options={filterOptions}
+                  className="min-w-[160px]"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex items-center gap-2 whitespace-nowrap"
+                  onClick={handleExport}
+                  disabled={isLoading || isExporting}
+                >
+                  {isExporting ? "جاري التصدير..." : "تصدير Excel"}
+                  <FileSpreadsheet className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => navigate("/entry")}
+                  className="flex items-center gap-2 whitespace-nowrap"
+                  rightIcon={<Plus className="h-4 w-4" />}
+                >
+                  إضافة عضو
+                </Button>
+              </div>
+            </div>
           </Card>
 
           {error && (

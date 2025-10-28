@@ -61,10 +61,22 @@ class ExportImportController extends Controller
             ]);
         }
 
+        $filters = $request->only([
+            'search',
+            'name',
+            'national_id',
+            'gender',
+            'religion',
+            'unit',
+            'membership_type',
+            'job',
+            'status',
+        ]);
+
         $filename = 'members-' . now()->format('Ymd-His') . '.' . $format;
         $writer = $format === 'csv' ? ExcelWriter::CSV : ExcelWriter::XLSX;
 
-        return Excel::download(new MembersExport(), $filename, $writer);
+        return Excel::download(new MembersExport($filters), $filename, $writer);
     }
 
     public function downloadFailure(string $id)

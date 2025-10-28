@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Member;
+use App\Support\MemberFilters;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -10,9 +11,30 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class MembersExport implements FromCollection, WithHeadings, WithMapping
 {
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function __construct(private readonly array $filters = [])
+    {
+    }
+
+    /**
+     * Expose filters primarily for testing purposes.
+     *
+     * @return array<string, mixed>
+     */
+    public function getFilters(): array
+    {
+        return $this->filters;
+    }
+
     public function collection(): Collection
     {
-        return Member::orderBy('id')->get();
+        $query = Member::query()->orderBy('id');
+
+        MemberFilters::apply($query, $this->filters);
+
+        return $query->get();
     }
 
     public function headings(): array

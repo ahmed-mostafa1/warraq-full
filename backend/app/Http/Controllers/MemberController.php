@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMemberRequest;
 use App\Http\Requests\UpdateMemberRequest;
 use App\Models\Member;
+use App\Support\MemberFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,21 +16,19 @@ class MemberController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Member::query()
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $term = $request->string('search')->trim();
+        $filters = $request->only([
+            'search',
+            'name',
+            'national_id',
+            'gender',
+            'religion',
+            'unit',
+            'membership_type',
+            'job',
+            'status',
+        ]);
 
-                $query->where(function ($subQuery) use ($term) {
-                    $subQuery->where('name', 'like', "%{$term}%")
-                        ->orWhere('national_id', 'like', "%{$term}%");
-                });
-            })
-            ->when($request->filled('unit'), fn($query) => $query->where('unit', $request->string('unit')))
-            ->when($request->filled('status'), fn($query) => $query->where('status', $request->string('status')))
-            ->when(
-                $request->filled('membership_type'),
-                fn($query) => $query->where('membership_type', $request->string('membership_type'))
-            )
+        $query = MemberFilters::apply(Member::query(), $filters)
             ->orderByDesc('id');
 
         $members = $query->get();

@@ -7,6 +7,11 @@ export interface MembersQueryParams {
   unit?: string;
   status?: string;
   membership_type?: string;
+  name?: string;
+  national_id?: string;
+  gender?: string;
+  religion?: string;
+  job?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -70,7 +75,8 @@ export interface MembersListResult<T = ApiMember> {
 export const listMembers = async (
   params: MembersQueryParams = {},
 ): Promise<MembersListResult> => {
-  const response = await apiClient.get("/members", { params });
+  const normalizedParams = normalizeMembersParams(params);
+  const response = await apiClient.get("/members", { params: normalizedParams });
   const body = response.data as unknown;
 
   let rows: ApiMember[] = [];
@@ -141,11 +147,33 @@ export const importMembersExcel = async (
 
 export const exportMembersExcel = async (
   format: "csv" | "xlsx" = "xlsx",
+  params: MembersQueryParams = {},
 ): Promise<Blob> => {
+  const normalizedParams = normalizeMembersParams(params);
   const response = await apiClient.get<Blob>("/members/export", {
-    params: { format },
+    params: { ...normalizedParams, format },
     responseType: "blob",
   });
 
   return response.data;
+};
+
+const normalizeMembersParams = (params: MembersQueryParams): MembersQueryParams => {
+  const entries = Object.entries(params).flatMap(([key, value]) => {
+    if (value === undefined || value === null) {
+      return [];
+    }
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        return [];
+      }
+      return [[key, trimmed]];
+    }
+
+    return [[key, value]];
+  });
+
+  return Object.fromEntries(entries);
 };

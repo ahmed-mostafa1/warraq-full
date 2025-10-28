@@ -76,7 +76,31 @@ class MembersImportExportTest extends TestCase
         $response->assertOk();
 
         Excel::assertDownloaded('/^members-\d{8}-\d{6}\.csv$/', function ($export): bool {
-            return $export instanceof MembersExport;
+            return $export instanceof MembersExport
+                && $export->getFilters() === [];
+        });
+    }
+
+    #[Test]
+    public function it_passes_filters_to_members_export(): void
+    {
+        Excel::fake();
+        Excel::matchByRegex();
+
+        Member::factory()->count(3)->create();
+
+        $response = $this->get('/api/members/export?format=xlsx&gender=ذكر&job=مهندس');
+        $response->assertOk();
+
+        Excel::assertDownloaded('/^members-\d{8}-\d{6}\.xlsx$/', function ($export): bool {
+            if (! $export instanceof MembersExport) {
+                return false;
+            }
+
+            $filters = $export->getFilters();
+
+            return ($filters['gender'] ?? null) === 'ذكر'
+                && ($filters['job'] ?? null) === 'مهندس';
         });
     }
 }
