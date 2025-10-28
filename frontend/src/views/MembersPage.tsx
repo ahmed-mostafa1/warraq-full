@@ -173,6 +173,8 @@ const MembersPage = () => {
 
     if (selectedFilter === "all") {
       params.search = trimmed;
+    } else if (selectedFilter === "membership_type") {
+      params.membership_type = normalizeMembershipType(trimmed);
     } else {
       (params as Record<FilterKey, string>)[selectedFilter] = trimmed;
     }
