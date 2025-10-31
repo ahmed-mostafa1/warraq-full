@@ -56,7 +56,7 @@ class StatsController extends Controller
             ->groupBy('gender')
             ->get()
             ->each(function ($row) use (&$counts): void {
-                $key = $this->normalizeGenderKey($row->gender);
+                $key = $this->normalizeGenderKeyUpdated($row->gender);
                 $counts[$key] += (int) $row->count;
             });
 
@@ -67,6 +67,21 @@ class StatsController extends Controller
         ];
     }
 
+    protected function normalizeGenderKeyUpdated(mixed $value): string
+    {
+        if ($value === null) {
+            return 'unspecified';
+        }
+
+        $normalized = mb_strtolower(trim((string) $value));
+
+        return match ($normalized) {
+            'male', 'm', 'ذكر', 'Ø°ÙƒØ±', 'Ø°' => 'male',
+            'female', 'f', 'أنثى', 'Ø£Ù†Ø«Ù‰', 'Ø§Ù†Ø«Ù‰', 'Ø£', 'Ø§' => 'female',
+            default => 'unspecified',
+        };
+    }
+ 
     protected function groupedBreakdown(string $column): array
     {
         $expression = "CASE WHEN $column IS NULL OR TRIM($column) = '' THEN 'unspecified' ELSE $column END";
@@ -87,7 +102,20 @@ class StatsController extends Controller
 
     protected function ageBuckets(): array
     {
-        $ageExpression = "FLOOR((julianday('now') - julianday(dob)) / 365.2425)";
+        $connection = app('db')->connection();
+        $driver = $connection->getDriverName();
+
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            $ageExpression = 'TIMESTAMPDIFF(YEAR, dob, CURDATE())';
+        } elseif ($driver === 'pgsql') {
+            $ageExpression = "DATE_PART('year', AGE(dob))";
+        } elseif ($driver === 'sqlite') {
+            // Calculate age in full years without relying on non-standard math functions
+            $ageExpression = "(CAST(strftime('%Y','now') AS INTEGER) - CAST(strftime('%Y', dob) AS INTEGER) - (strftime('%m-%d','now') < strftime('%m-%d', dob)))";
+        } else {
+            // Fallback that avoids FLOOR() for engines without math extensions
+            $ageExpression = "CAST(((julianday('now') - julianday(dob)) / 365.2425) AS INTEGER)";
+        }
 
         $row = Member::query()
             ->selectRaw("
