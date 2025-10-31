@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,40 +15,45 @@ import AnimatedButton from "../components/animations/AnimatedButton";
 import AnimatedSection from "../components/animations/AnimatedSection";
 import AnimatedGroup from "../components/animations/AnimatedGroup";
 import { useMembersData } from "../hooks/useMembersData";
+import { getStats, type StatsDTO } from "../services/stats";
 import mainLogo from "/main logo.jpg";
-import {
-  RELIGION_VALUES,
-  normalizeReligion,
-  type Religion,
-} from "../types/member";
+// Removed unused member-type imports after switching Home to stats-only fetch
 
 const Home: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { stats, members } = useMembersData();
+  // Speed up Home: skip fetching the full members list and Redux stats here
+  useMembersData({ fetchMembers: false, fetchStats: false });
+  const [statsDto, setStatsDto] = React.useState<StatsDTO | null>(null);
+  React.useEffect(() => {
+    let mounted = true;
+    getStats()
+      .then((data) => {
+        if (mounted) setStatsDto(data);
+      })
+      .catch((e) => console.warn("Failed to load stats", e));
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   // Initialize default stats to avoid null checks throughout the component
   const safeStats = useMemo(() => {
-    const religionCounts: Record<Religion, number> = {
-      مسلم: 0,
-      مسيحي: 0,
-    };
-
-    members?.forEach((member) => {
-      const normalized = normalizeReligion(member.religion);
-      religionCounts[normalized] += 1;
-    });
+    const byGender = Object.fromEntries((statsDto?.byGender ?? []).map((x) => [x.key, x.count]));
+    const byReligion = Object.fromEntries((statsDto?.byReligion ?? []).map((x) => [x.key, x.count]));
+    const muslimCount = byReligion['muslim'] ?? 0;
+    const christianCount = byReligion['christian'] ?? 0;
 
     return {
-      totalMembers: stats?.totalMembers || 0,
-      recentRegistrations: stats?.recentRegistrations || 0,
-      maleMembers: stats?.maleMembers || 0,
-      femaleMembers: stats?.femaleMembers || 0,
-      muslimMembers: religionCounts[RELIGION_VALUES[0]],
-      christianMembers: religionCounts[RELIGION_VALUES[1]],
+      totalMembers: statsDto?.total || 0,
+      recentRegistrations: 0,
+      maleMembers: byGender.male ?? 0,
+      femaleMembers: byGender.female ?? 0,
+      muslimMembers: muslimCount,
+      christianMembers: christianCount,
     };
-  }, [stats, members]);
+  }, [statsDto]);
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -74,13 +79,13 @@ const Home: React.FC = () => {
                         alt={t("app.title")}
                         className="h-56 w-56 rounded-full shadow-2xl object-cover relative z-10 transition-all duration-300 group-hover:scale-105"
                       />
-                      {/* إطار التوهج الخارجي - يزداد عند الهوفر */}
+                      {/* Ø¥Ø·Ø§Ø± Ø§Ù„ØªÙˆÙ‡Ø¬ Ø§Ù„Ø®Ø§Ø±Ø¬ÙŠ - ÙŠØ²Ø¯Ø§Ø¯ Ø¹Ù†Ø¯ Ø§Ù„Ù‡ÙˆÙØ± */}
                       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-red-400 via-red-500 to-red-600 opacity-60 blur-xl animate-pulse group-hover:opacity-80 group-hover:blur-2xl group-hover:scale-110 transition-all duration-300"></div>
 
-                      {/* إطار التوهج الداخلي - يزداد عند الهوفر */}
+                      {/* Ø¥Ø·Ø§Ø± Ø§Ù„ØªÙˆÙ‡Ø¬ Ø§Ù„Ø¯Ø§Ø®Ù„ÙŠ - ÙŠØ²Ø¯Ø§Ø¯ Ø¹Ù†Ø¯ Ø§Ù„Ù‡ÙˆÙØ± */}
                       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-red-300 via-red-400 to-red-500 opacity-40 blur-2xl group-hover:opacity-60 group-hover:blur-3xl group-hover:scale-105 transition-all duration-300"></div>
 
-                      {/* إطار توهج إضافي للهوفر فقط */}
+                      {/* Ø¥Ø·Ø§Ø± ØªÙˆÙ‡Ø¬ Ø¥Ø¶Ø§ÙÙŠ Ù„Ù„Ù‡ÙˆÙØ± ÙÙ‚Ø· */}
                       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-red-300 via-red-400 to-red-500 opacity-0 blur-3xl group-hover:opacity-30 group-hover:scale-110 transition-all duration-500"></div>
                     </div>
                   </div>
@@ -276,7 +281,7 @@ const Home: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-center items-center">
                 <p className="text-gray-900 dark:text-red-300 text-sm text-center">
-                  © {new Date().getFullYear()} {t("footer.partyName")} - {t("app.title")}. {t("footer.copyright")}
+                  Â© {new Date().getFullYear()} {t("footer.partyName")} - {t("app.title")}. {t("footer.copyright")}
                 </p>
               </div>
             </div>

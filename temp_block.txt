@@ -1,0 +1,21 @@
+  // Initialize default stats to avoid null checks throughout the component
+  const safeStats = useMemo(() => {
+    const religionCounts: Record<Religion, number> = {
+      مسلم: 0,
+      مسيحي: 0,
+    };
+
+    members?.forEach((member) => {
+      const normalized = normalizeReligion(member.religion);
+      religionCounts[normalized] += 1;
+    });
+
+    return {
+      totalMembers: stats?.totalMembers || 0,
+      recentRegistrations: stats?.recentRegistrations || 0,
+      maleMembers: stats?.maleMembers || 0,
+      femaleMembers: stats?.femaleMembers || 0,
+      muslimMembers: religionCounts[RELIGION_VALUES[0]],
+      christianMembers: religionCounts[RELIGION_VALUES[1]],
+    };
+  }, [stats, members]);

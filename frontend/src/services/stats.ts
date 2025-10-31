@@ -15,6 +15,7 @@ export interface StatsDTO {
   byGender: StatsBucket[];
   byUnit: StatsBucket[];
   byMembershipType: StatsBucket[];
+  byReligion: StatsBucket[];
   ageBuckets: AgeBucket[];
 }
 

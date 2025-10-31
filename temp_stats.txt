@@ -32,7 +32,7 @@ class StatsController extends Controller
         $byGender = $this->genderBreakdown();
         $byUnit = $this->groupedBreakdown('unit');
         $byMembershipType = $this->groupedBreakdown('membership_type');
-        $byReligion = $this->religionBreakdown();
+        $byReligion = $this->groupedBreakdown('religion');
         $ageBuckets = $this->ageBuckets();
 
         return [
@@ -65,30 +65,6 @@ class StatsController extends Controller
         return [
             ['key' => 'male', 'count' => $counts['male']],
             ['key' => 'female', 'count' => $counts['female']],
-            ['key' => 'unspecified', 'count' => $counts['unspecified']],
-        ];
-    }
-
-    protected function religionBreakdown(): array
-    {
-        $counts = [
-            'muslim' => 0,
-            'christian' => 0,
-            'unspecified' => 0,
-        ];
-
-        Member::query()
-            ->selectRaw('religion, COUNT(*) as count')
-            ->groupBy('religion')
-            ->get()
-            ->each(function ($row) use (&$counts): void {
-                $key = $this->normalizeReligionKey($row->religion);
-                $counts[$key] += (int) $row->count;
-            });
-
-        return [
-            ['key' => 'muslim', 'count' => $counts['muslim']],
-            ['key' => 'christian', 'count' => $counts['christian']],
             ['key' => 'unspecified', 'count' => $counts['unspecified']],
         ];
     }
@@ -176,19 +152,5 @@ class StatsController extends Controller
             default => 'unspecified',
         };
     }
-
-    protected function normalizeReligionKey(mixed $value): string
-    {
-        if ($value === null) {
-            return 'unspecified';
-        }
-
-        $normalized = mb_strtolower(trim((string) $value));
-
-        return match ($normalized) {
-            'Ù…Ø³Ù„Ù…', 'مسلم' => 'muslim',
-            'Ù…Ø³ÙŠØ­ÙŠ', 'مسيحي' => 'christian',
-            default => 'unspecified',
-        };
-    }
 }
+
