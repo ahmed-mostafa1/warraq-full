@@ -141,7 +141,7 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
             'unit' => ['nullable', 'string'],
             'email' => ['nullable', 'email', 'max:255'],
             'membership_type' => ['nullable', 'string'],
-            'religion' => ['nullable', 'string', 'max:150'],
+            'religion' => ['nullable', Rule::in(['مسلم', 'مسيحي'])],
             'job' => ['nullable', 'string', 'max:150'],
             'status' => ['required', 'in:active,inactive'],
             'financial_support' => ['boolean'],
@@ -181,6 +181,7 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
         $normalized['gender'] = $this->normalizeGender($normalized['gender']);
         $normalized['status'] = $this->normalizeStatus($normalized['status']);
         $normalized['dob'] = $this->normalizeDate($normalized['dob']);
+        $normalized['religion'] = $this->normalizeReligion($normalized['religion']);
         $normalized['financial_support'] = $this->normalizeBoolean($normalized['financial_support'] ?? null);
 
         return $normalized;
@@ -283,6 +284,22 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
             'male' => 'ذكر',
             'female' => 'أنثى',
             default => $gender,
+        };
+    }
+
+
+    protected function normalizeReligion(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = mb_strtolower((string) $value);
+
+        return match ($normalized) {
+            'muslim', 'islam', 'مسلم' => 'مسلم',
+            'christian', 'christianity', 'مسيحي' => 'مسيحي',
+            default => $value,
         };
     }
 }
