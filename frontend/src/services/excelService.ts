@@ -7,6 +7,84 @@ import {
   type MembershipType,
 } from "../types/member";
 
+const HEADER_ALIASES = {
+  fullName: [
+    "name",
+    "full_name",
+    "fullname",
+    "full name",
+    "member_name",
+    'O\u0015U,O\u0015O3U. O"O\u0015U,U�O\u0015U.U,',
+  ],
+  nationalId: [
+    "national_id",
+    "national id",
+    "nationalid",
+    "id_number",
+    "id",
+    "identity",
+    "رقم قومي",
+    "الرقم القومي",
+    "O\u0015U,O�U,U. O\u0015U,U,U^U.US",
+  ],
+  gender: ["gender", "sex", "O\u0015U,O�U+O3"],
+  dob: ["dob", "date_of_birth", "birthdate", "birth_date", "تاريخ الميلاد"],
+  age: ["age", "O\u0015U,O1U.O�"],
+  phoneNumber: [
+    "phone",
+    "phone_number",
+    "phone number",
+    "mobile",
+    "mobile_number",
+    "O�U,U. O\u0015U,U�O\u0015O�U?",
+  ],
+  landlineNumber: [
+    "landline",
+    "landline_number",
+    "telephone",
+    "telephone_number",
+    "O�U,U. O\u0015U,U�O\u0015O�U? O\u0015U,O�O�O\u0014US",
+  ],
+  email: ["email", "email_address", 'O\u0015U,O"O�USO_ O\u0015U,O�U,U�O�O�U^U+US'],
+  job: ["job", "occupation", "role", "المهنة", "O\u0015U,U^O,USU?Oc"],
+  address: ["address", "العنوان", "O\u0015U,O1U+U^O\u0015U+"],
+  partyUnit: [
+    "unit",
+    "party_unit",
+    "party unit",
+    "organization_unit",
+    "O\u0015U,U^O-O_Oc O\u0015U,O-O�O\"USOc",
+  ],
+  membershipNumber: [
+    "membership_number",
+    "membership number",
+    "membershipno",
+    "member_number",
+    "O�U,U. O\u0015U,O1O\u0014U^USOc",
+  ],
+  membershipType: [
+    "membership_type",
+    "membership type",
+    "member_type",
+    "U+U^O1 O\u0015U,O1O\u0014U^USOc",
+  ],
+  religion: ["religion", "الديانة", "O\u0015U,O_USO\u0015U+Oc"],
+  photo: ["photo", "image", "avatar"],
+  status: ["status", "الحالة"],
+  notes: ["notes", "note", "ملاحظات"],
+  registrationDate: [
+    "registration_date",
+    "registered_at",
+    "created_at",
+    "registration date",
+    "O�O\u0015O�USOr O\u0015U,O�O3O�USU,",
+  ],
+  financialSupport: ["financial_support", "financial support"],
+} as const;
+
+const FEMALE_GENDER_VALUES = ["female", "f", "انثى", "أنثى", "امرأة", "O\u0015U+O\u0015U%"];
+const MALE_GENDER_PATTERN = ["male", "m", "ذكر", "O\u0015U�O�"];
+
 export class ExcelService {
   // Export members to Excel
   static async exportToExcel(
@@ -155,82 +233,306 @@ export class ExcelService {
     row: Record<string, unknown>,
     index: number,
   ): Member {
-    const fieldMappings = {
-      fullName: ["الاسم بالكامل", "الاسم", "Full Name", "Name"],
-      nationalId: ["الرقم القومي", "National ID"],
-      email: ["البريد الإلكتروني", "Email"],
-      phoneNumber: ["رقم الهاتف", "Phone"],
-      landlineNumber: ["رقم الهاتف الأرضي", "Landline"],
-      partyUnit: ["الوحدة الحزبية", "Party Unit"],
-      religion: ["الديانة", "Religion"],
-      membershipType: ["نوع العضوية", "Membership Type", "memberType"],
-    };
+    const normalizedRow = this.normalizeRowKeys(row);
 
-    const findFieldValue = (possibleNames: string[]): string => {
-      for (const name of possibleNames) {
-        if (row[name]) return row[name].toString().trim();
-      }
-      return "";
-    };
-
-    const fullName = findFieldValue(fieldMappings.fullName);
-    const nationalId = findFieldValue(fieldMappings.nationalId);
-    const email = findFieldValue(fieldMappings.email);
-    const phoneNumber = findFieldValue(fieldMappings.phoneNumber);
-    const landlineNumber = findFieldValue(fieldMappings.landlineNumber);
-    const partyUnit = findFieldValue(fieldMappings.partyUnit);
-    const religion = findFieldValue(fieldMappings.religion);
-
-    if (!fullName || !nationalId || !email || !phoneNumber) {
-      throw new Error("الحقول المطلوبة مفقودة");
+    const fullName = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.fullName),
+    );
+    if (!fullName) {
+      throw new Error("O\u0015U,O\u0015O3U. O\"O\u0015U,U?O\u0015U.U, O?USO? O?O-USO-");
     }
 
-    const cleanNationalId = nationalId.replace(/\D/g, "");
+    const rawNationalId = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.nationalId),
+    );
+    const cleanNationalId = this.extractDigits(rawNationalId);
     if (cleanNationalId.length !== 14) {
-      throw new Error("الرقم القومي يجب أن يكون 14 رقم");
+      throw new Error("O\u0015U,O?U,U. O\u0015U,U,U^U.US USO?O\" O?U+ USU?U^U+ 14 O?U,U.");
     }
 
-    const cleanPhoneNumber = phoneNumber.replace(/\D/g, "");
+    const email = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.email),
+    );
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("O?U+O3USU, O\u0015U,O\"O?USO_ O\u0015U,O?U,U?O?O?U^U+US O?USO? O?O-USO-");
+    }
+
+    const rawPhoneNumber = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.phoneNumber),
+    );
+    const cleanPhoneNumber = this.extractDigits(rawPhoneNumber);
     if (!/^01\d{9}$/.test(cleanPhoneNumber)) {
-      throw new Error("رقم الهاتف غير صحيح");
+      throw new Error("O?U,U. O\u0015U,U?O\u0015O?U? O?USO? O?O-USO-");
     }
 
-    // تحقق من الديانة
-    const religionTrimmed = religion.trim();
-    if (!religionTrimmed) {
-      throw new Error("الديانة يجب أن تكون مسلم أو مسيحي");
+    const rawLandline = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.landlineNumber),
+    );
+    const landlineDigits = this.extractDigits(rawLandline);
+    const landlineNumber = landlineDigits.length > 0 ? landlineDigits : undefined;
+
+    const religionValue = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.religion),
+    );
+    if (!religionValue) {
+      throw new Error("O\u0015U,O_USO\u0015U+Oc USO?O\" O?U+ O?U?U^U+ U.O3U,U. O?U^ U.O3USO-US");
     }
 
-    const normalizedReligion = normalizeReligion(religionTrimmed);
+    const normalizedReligion = normalizeReligion(religionValue);
     if (!RELIGION_VALUES.includes(normalizedReligion)) {
-      throw new Error("الديانة يجب أن تكون مسلم أو مسيحي");
+      throw new Error("O\u0015U,O_USO\u0015U+Oc USO?O\" O?U+ O?U?U^U+ U.O3U,U. O?U^ U.O3USO-US");
     }
 
-    const membershipType = findFieldValue(fieldMappings.membershipType);
-    const normalizedMembershipType = normalizeMembershipType(membershipType);
+    const partyUnit = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.partyUnit),
+    );
+
+    const membershipNumberFromSheet = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.membershipNumber),
+    );
+    const membershipNumber =
+      membershipNumberFromSheet || `M${Date.now()}${index}`;
+
+    const job = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.job),
+    );
+    const address = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.address),
+    );
+    const photo = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.photo),
+    );
+
+    const membershipTypeRaw = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.membershipType),
+    );
+    const membershipType = normalizeMembershipType(membershipTypeRaw);
+
+    const genderRaw = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.gender),
+    );
+    const gender = this.normalizeGenderValue(genderRaw);
+
+    const dobValue = this.getCellValue(normalizedRow, HEADER_ALIASES.dob);
+    const ageValue = this.getCellValue(normalizedRow, HEADER_ALIASES.age);
+    const age = this.resolveAge(dobValue, ageValue);
+
+    const registrationDateValue = this.getCellValue(
+      normalizedRow,
+      HEADER_ALIASES.registrationDate,
+    );
+    const registrationDate =
+      this.parseDateValue(registrationDateValue)?.toISOString() ??
+      new Date().toISOString();
+
+    const statusValue = this.toStringValue(
+      this.getCellValue(normalizedRow, HEADER_ALIASES.status),
+    );
+    const status = this.normalizeStatus(statusValue);
 
     return {
       id: `imported_${Date.now()}_${index}`,
       fullName,
       nationalId: cleanNationalId,
-      gender: "male",
+      gender,
       phoneNumber: cleanPhoneNumber,
-      landlineNumber: landlineNumber || undefined,
+      landlineNumber,
       partyUnit: partyUnit || undefined,
       email,
-      membershipNumber: `M${Date.now()}${index}`,
-      age: 18,
-      address: "",
-      job: "",
-      membershipType: normalizedMembershipType,
+      membershipNumber,
+      age,
+      address,
+      job,
+      membershipType,
       religion: normalizedReligion,
-      registrationDate: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      photo: photo || undefined,
+      registrationDate,
+      createdAt: registrationDate,
+      updatedAt: registrationDate,
+      status,
     };
   }
-
   private static getMembershipTypeText(type: string): MembershipType | string {
     return normalizeMembershipType(type);
+  }
+
+  private static normalizeRowKeys(
+    row: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const normalized: Record<string, unknown> = {};
+
+    Object.entries(row).forEach(([rawKey, value]) => {
+      if (typeof rawKey !== "string") {
+        return;
+      }
+
+      const trimmedKey = rawKey.trim();
+      const lowerKey = trimmedKey.toLowerCase();
+      if (normalized[lowerKey] === undefined) {
+        normalized[lowerKey] = value;
+      }
+
+      const normalizedKey = this.normalizeHeaderKey(trimmedKey);
+      if (normalizedKey && normalized[normalizedKey] === undefined) {
+        normalized[normalizedKey] = value;
+      }
+    });
+
+    return normalized;
+  }
+
+  private static normalizeHeaderKey(key: string): string {
+    return key
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_\-]/g, "")
+      .replace(/["',\.]/g, "");
+  }
+
+  private static getCellValue(
+    row: Record<string, unknown>,
+    candidates: readonly string[],
+  ): unknown {
+    for (const candidate of candidates) {
+      const normalizedKey = this.normalizeHeaderKey(candidate);
+      if (row[normalizedKey] !== undefined) {
+        return row[normalizedKey];
+      }
+
+      const lowerKey = candidate.trim().toLowerCase();
+      if (row[lowerKey] !== undefined) {
+        return row[lowerKey];
+      }
+    }
+
+    return undefined;
+  }
+
+  private static toStringValue(value: unknown): string {
+    if (value === undefined || value === null) {
+      return "";
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString();
+    }
+
+    return String(value).trim();
+  }
+
+  private static extractDigits(value: string): string {
+    return value.replace(/\D/g, "");
+  }
+
+  private static normalizeGenderValue(value: string): "male" | "female" {
+    if (!value) {
+      return "male";
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (
+      FEMALE_GENDER_VALUES.some(
+        (candidate) => candidate.toLowerCase() === normalized,
+      )
+    ) {
+      return "female";
+    }
+
+    if (
+      MALE_GENDER_PATTERN.some(
+        (candidate) => candidate.toLowerCase() === normalized,
+      )
+    ) {
+      return "male";
+    }
+
+    return normalized.startsWith("f") ? "female" : "male";
+  }
+
+  private static resolveAge(
+    dobValue: unknown,
+    fallbackAgeValue: unknown,
+  ): number {
+    const dobDate = this.parseDateValue(dobValue);
+    if (dobDate) {
+      return this.calculateAge(dobDate);
+    }
+
+    const fallbackAge = Number(this.toStringValue(fallbackAgeValue));
+    if (Number.isFinite(fallbackAge) && fallbackAge > 0) {
+      return Math.min(120, Math.max(1, Math.round(fallbackAge)));
+    }
+
+    return 18;
+  }
+
+  private static parseDateValue(value: unknown): Date | null {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value;
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      if (XLSX.SSF && typeof XLSX.SSF.parse_date_code === "function") {
+        const excelDate = XLSX.SSF.parse_date_code(value);
+        if (excelDate) {
+          return new Date(excelDate.y, (excelDate.m ?? 1) - 1, excelDate.d ?? 1);
+        }
+      }
+    }
+
+    const stringValue = this.toStringValue(value);
+    if (!stringValue) {
+      return null;
+    }
+
+    const timestamp = Date.parse(stringValue);
+    if (!Number.isNaN(timestamp)) {
+      return new Date(timestamp);
+    }
+
+    return null;
+  }
+
+  private static calculateAge(dob: Date): number {
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDifference = today.getMonth() - dob.getMonth();
+
+    if (
+      monthDifference < 0 ||
+      (monthDifference === 0 && today.getDate() < dob.getDate())
+    ) {
+      age--;
+    }
+
+    return Math.min(120, Math.max(1, age));
+  }
+
+  private static normalizeStatus(
+    value: string,
+  ): "active" | "inactive" | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (
+      normalized === "inactive" ||
+      normalized === "0" ||
+      normalized.includes("???") ||
+      normalized.includes("?????")
+    ) {
+      return "inactive";
+    }
+
+    if (normalized === "active" || normalized === "1") {
+      return "active";
+    }
+
+    return undefined;
   }
 }

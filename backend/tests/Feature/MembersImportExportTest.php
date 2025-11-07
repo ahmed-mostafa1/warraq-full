@@ -28,12 +28,14 @@ class MembersImportExportTest extends TestCase
             'email' => 'old@example.com',
             'religion' => 'مسلم',
             'job' => 'Old Job',
+            'membership_number' => 'OLD-001',
+            'photo' => 'photos/old.jpg',
         ]);
 
         $csvContent = implode("\n", [
-            'name,national_id,gender,dob,phone,address,unit,email,membership_type,religion,job,status,financial_support,notes',
-            'Ahmed Ali,12345678901234,male,1990-05-05,01012345678,10 Downing Street,Unit A,ahmed@example.com,regular,Islam,Engineer,active,1,First import',
-            "Updated Name,{$existing->national_id},female,1988-03-03,01098765432,Updated Address,Unit B,updated@example.com,committee,Christianity,Doctor,inactive,0,Updated note",
+            'name,national_id,gender,dob,phone,address,unit,email,membership_type,membership_number,religion,job,photo,status,financial_support,notes',
+            'Ahmed Ali,12345678901234,male,1990-05-05,01012345678,10 Downing Street,Unit A,ahmed@example.com,regular,MEM-001,Islam,Engineer,photos/ahmed.jpg,active,1,First import',
+            "Updated Name,{$existing->national_id},female,1988-03-03,01098765432,Updated Address,Unit B,updated@example.com,committee,MEM-999,Christianity,Doctor,photos/updated.jpg,inactive,0,Updated note",
             '',
         ]);
 
@@ -59,6 +61,8 @@ class MembersImportExportTest extends TestCase
             'email' => 'ahmed@example.com',
             'religion' => 'مسلم',
             'job' => 'Engineer',
+            'membership_number' => 'MEM-001',
+            'photo' => 'photos/ahmed.jpg',
         ]);
 
         $this->assertDatabaseHas('members', [
@@ -70,6 +74,8 @@ class MembersImportExportTest extends TestCase
             'email' => 'updated@example.com',
             'religion' => 'مسيحي',
             'job' => 'Doctor',
+            'membership_number' => 'MEM-999',
+            'photo' => 'photos/updated.jpg',
         ]);
     }
 
