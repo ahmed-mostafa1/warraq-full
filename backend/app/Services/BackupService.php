@@ -6,11 +6,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
-use ZipArchive;
 
 class BackupService
 {
-    public function createZip(): string
+    public function createSnapshot(): string
     {
         $dbPath = config('backup.db_path');
 
@@ -32,34 +31,33 @@ class BackupService
             throw new RuntimeException('Unable to create backup working directory: ' . $subDir);
         }
 
-        $sqliteCopy = $subDir . DIRECTORY_SEPARATOR . 'database.sqlite';
+        $prefix = (string) config('backup.filename_prefix', 'waraq');
+        $dateFormat = (string) config('backup.filename_date_format', 'd-m-Y');
+        $extension = (string) config('backup.filename_extension', '.sqlite');
+
+        $datePart = $timestamp->format($dateFormat);
+        $baseName = trim($prefix) === '' ? $datePart : sprintf('%s-%s', $prefix, $datePart);
+
+        if ($extension !== '') {
+            $baseName .= $extension[0] === '.' ? $extension : '.' . $extension;
+        }
+
+        $snapshotFilename = $baseName;
+        $snapshotPath = $subDir . DIRECTORY_SEPARATOR . $snapshotFilename;
 
         try {
-            $this->createSQLiteCopy($dbPath, $sqliteCopy);
+            $this->createSQLiteCopy($dbPath, $snapshotPath);
         } catch (RuntimeException $exception) {
             $this->cleanupDirectory($subDir);
             throw $exception;
         }
 
-        $zipFilename = $timestamp->format(config('backup.filename_pattern', 'warraq-Ymd-Hi.zip'));
-        $zipPath = $subDir . DIRECTORY_SEPARATOR . $zipFilename;
-
-        $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
-            $this->cleanupDirectory($subDir);
-            throw new RuntimeException('Unable to create zip archive at: ' . $zipPath);
-        }
-
-        $zip->addFile($sqliteCopy, 'database.sqlite');
-        $zip->setArchiveComment('Warraq backup created at ' . $timestamp->toIso8601String());
-        $zip->close();
-
-        return $zipPath;
+        return $snapshotPath;
     }
 
-    public function cleanup(string $zipPath): void
+    public function cleanup(string $snapshotPath): void
     {
-        $directory = dirname($zipPath);
+        $directory = dirname($snapshotPath);
         $this->cleanupDirectory($directory);
     }
 

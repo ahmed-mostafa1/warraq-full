@@ -12,6 +12,7 @@ Route::post('/members/import', [ExportImportController::class, 'import']);
 Route::get('/members/export', [ExportImportController::class, 'export']);
 Route::get('/import-failures/{id}', [ExportImportController::class, 'downloadFailure']);
 Route::get('/backup', [BackupController::class, 'download']);
+Route::post('/backup/restore', [BackupController::class, 'restore']);
 Route::get('/stats', [StatsController::class, 'index']);
 
 Route::apiResource('members', MemberController::class)->parameters([

@@ -145,6 +145,23 @@ export const importMembersExcel = async (
   return response.data;
 };
 
+export const downloadImportFailureReport = async (
+  id: string,
+): Promise<{ blob: Blob; filename: string }> => {
+  const response = await apiClient.get<Blob>(`/import-failures/${id}`, {
+    responseType: "blob",
+  });
+
+  const disposition = response.headers["content-disposition"] as string | undefined;
+  const match = disposition?.match(/filename="?([^";]+)"?/i);
+  const filename = match?.[1] ?? `import-failures-${id}.csv`;
+
+  return {
+    blob: response.data,
+    filename,
+  };
+};
+
 export const exportMembersExcel = async (
   format: "csv" | "xlsx" = "xlsx",
   params: MembersQueryParams = {},

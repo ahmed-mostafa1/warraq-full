@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDispatch, useSelector } from "react-redux";
@@ -8,8 +9,7 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { useToastContext } from "../hooks/useToastContext";
 import { getMembers } from "../slices/membersSlice";
-import { LocalStorageService } from "../services/localStorage";
-import { ExcelService } from "../services/excelService";
+import { downloadBackup, restoreBackup, type RestoreBackupResponse } from "../services/backup";
 import type { RootState } from "../store";
 import type { AppDispatch } from "../store";
 
@@ -21,46 +21,19 @@ const BackupPage: React.FC = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreSummary, setRestoreSummary] = useState<RestoreBackupResponse | null>(null);
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleBackup = async (format: "json" | "excel" = "excel") => {
-    if (members.length === 0) {
-      addToast({
-        title: t("common.warning"),
-        message: t("backup.noDataToBackup"),
-        type: "warning",
-      });
-      return;
-    }
-
+  const handleBackup = async () => {
     setIsBackingUp(true);
 
     try {
-      if (format === "excel") {
-        const fileName = `backup_${new Date().toISOString().split("T")[0]}.xlsx`;
-        await ExcelService.exportToExcel(members, fileName);
-        addToast({
-          title: t("common.success"),
-          message: t("backup.backupSuccess"),
-          type: "success",
-        });
-        return;
-      }
-
-      // JSON backup (fallback)
-      const backupData = {
-        members,
-        timestamp: new Date().toISOString(),
-        version: "1.0.0",
-      };
-
-      const dataStr = JSON.stringify(backupData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: "application/json" });
-
-      const url = URL.createObjectURL(dataBlob);
+      const { blob, filename } = await downloadBackup();
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `backup_${new Date().toISOString().split("T")[0]}.json`;
+      link.download = filename;
+      link.style.display = "none";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -72,7 +45,7 @@ const BackupPage: React.FC = () => {
         type: "success",
       });
     } catch (error) {
-      console.error("Backup error:", error);
+      console.error("Backup download failed:", error);
       addToast({
         title: t("common.error"),
         message: t("backup.backupError"),
@@ -91,56 +64,36 @@ const BackupPage: React.FC = () => {
     setIsRestoring(true);
 
     try {
-      let restoredCount = 0;
-
-      if (file.name.endsWith(".json")) {
-        const text = await file.text();
-        const backupData = JSON.parse(text);
-
-        if (!backupData.members || !Array.isArray(backupData.members)) {
-          throw new Error(t("backup.invalidBackupFile"));
-        }
-
-        LocalStorageService.clearAllData();
-
-        for (const member of backupData.members) {
-          LocalStorageService.addMember(member);
-        }
-        restoredCount = backupData.members.length;
-      } else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
-        const importedMembers = await ExcelService.importMembers(file);
-        if (!importedMembers || importedMembers.length === 0) {
-          throw new Error(t("backup.invalidBackupFile"));
-        }
-
-        LocalStorageService.clearAllData();
-        for (const member of importedMembers) {
-          LocalStorageService.addMember(member);
-        }
-        restoredCount = importedMembers.length;
-      } else {
-        addToast({
-          title: t("common.error"),
-          message: t("backup.invalidFile"),
-          type: "error",
-        });
-        return;
-      }
-
+      const result = await restoreBackup(file);
+      setRestoreSummary(result);
       await dispatch(getMembers());
 
       addToast({
         title: t("common.success"),
-        message: t("backup.membersRestored", {
-          count: restoredCount,
+        message: t("backup.restoreSuccessDetailed", {
+          inserted: result.inserted,
+          current: result.total,
         }),
         type: "success",
       });
     } catch (error) {
       console.error("Restore error:", error);
+      let message = t("backup.restoreError");
+      if (axios.isAxiosError(error)) {
+        const errors = error.response?.data?.errors;
+        const fileError = errors && typeof errors === "object"
+          ? (Object.values(errors).flat().find((value) => typeof value === "string") as string | undefined)
+          : undefined;
+        const responseMessage =
+          (error.response?.data as { message?: string })?.message ||
+          error.response?.data?.error;
+        message = fileError || responseMessage || message;
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
       addToast({
         title: t("common.error"),
-        message: t("backup.restoreError"),
+        message,
         type: "error",
       });
     } finally {
@@ -155,27 +108,6 @@ const BackupPage: React.FC = () => {
   const openRestorePicker = () => {
     if (isRestoring) return;
     restoreInputRef.current?.click();
-  };
-
-  const handleClearAllData = () => {
-    if (window.confirm(t("backup.clearAllDataWarning"))) {
-      try {
-        LocalStorageService.clearAllData();
-        dispatch(getMembers());
-        addToast({
-          title: t("common.success"),
-          message: t("backup.dataCleared"),
-          type: "success",
-        });
-      } catch (error) {
-        console.error("Clear data error:", error);
-        addToast({
-          title: t("common.error"),
-          message: t("backup.clearDataError"),
-          type: "error",
-        });
-      }
-    }
   };
 
   return (
@@ -211,8 +143,8 @@ const BackupPage: React.FC = () => {
                     {t("backup.backupDescription")}
                   </p>
                   <Button
-                    onClick={() => handleBackup()}
-                    disabled={isBackingUp || members.length === 0}
+                    onClick={handleBackup}
+                    disabled={isBackingUp}
                     leftIcon={<Database className="h-5 w-5" />}
                     className="w-full"
                     size="lg"
@@ -240,7 +172,7 @@ const BackupPage: React.FC = () => {
                     <input
                       ref={restoreInputRef}
                       type="file"
-                      accept=".json,.xlsx,.xls"
+                      accept=".sqlite"
                       onChange={handleRestore}
                       className="hidden"
                       disabled={isRestoring}
@@ -258,6 +190,32 @@ const BackupPage: React.FC = () => {
                         ? t("backup.restoring")
                         : t("backup.selectRestoreFile")}
                     </Button>
+
+                        {restoreSummary && (
+                          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-start dark:border-slate-700 dark:bg-slate-900/40">
+                            <p className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
+                              {t("backup.restoreSummaryTitle")}
+                            </p>
+                        <div className="grid grid-cols-2 gap-3 text-center">
+                          <div>
+                            <div className="text-xl font-semibold text-blue-600 dark:text-blue-400">
+                              {restoreSummary.previous_count}
+                            </div>
+                            <p className="text-xs text-gray-600 dark:text-slate-300">
+                              {t("backup.previousCount")}
+                            </p>
+                          </div>
+                          <div>
+                            <div className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">
+                              {restoreSummary.total}
+                            </div>
+                            <p className="text-xs text-gray-600 dark:text-slate-300">
+                              {t("backup.currentCount")}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -298,22 +256,6 @@ const BackupPage: React.FC = () => {
               </div>
             </Card>
 
-            {/* Danger Zone */}
-            <Card className="p-6 border-red-200 dark:border-red-800">
-              <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">
-                {t("backup.dangerZone")}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                {t("backup.clearAllDataWarning")}
-              </p>
-              <Button
-                onClick={handleClearAllData}
-                variant="secondary"
-                className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900"
-              >
-                {t("backup.clearAllData")}
-              </Button>
-            </Card>
           </div>
         </main>
       </div>

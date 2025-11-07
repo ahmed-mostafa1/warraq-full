@@ -1,8 +1,10 @@
 <?php
 
 return [
-    'filename_pattern' => 'warraq-Ymd-Hi.zip',
+    'filename_prefix' => 'waraq',
+    'filename_date_format' => 'd-m-Y',
+    'filename_extension' => '.sqlite',
     'tmp_dir' => storage_path('app/backup_tmp'),
-    'db_path' => config('database.connections.sqlite.database'),
+    'db_path' => base_path(env('DB_DATABASE', 'database/database.sqlite')),
     'use_vacuum_into' => (bool) env('BACKUP_USE_VACUUM', true),
 ];
