@@ -42,7 +42,102 @@ import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../store";
 import { addMember, updateMember } from "../slices/membersSlice";
 import { useToastContext } from "../hooks/useToastContext";
-import { useActivity } from "../contexts/ActivityContext";
+import { useActivity } from "../contexts/activityContext";
+
+const MEMBER_IMPORT_COLUMNS = [
+  "name",
+  "national_id",
+  "gender",
+  "dob",
+  "phone",
+  "address",
+  "unit",
+  "email",
+  "membership_type",
+  "membership_number",
+  "religion",
+  "job",
+  "photo",
+  "status",
+  "financial_support",
+  "notes",
+] as const;
+
+type MemberImportColumn = (typeof MEMBER_IMPORT_COLUMNS)[number];
+
+type ImportRecord = Partial<Record<MemberImportColumn, string>>;
+
+const COLUMN_ALIAS_MAP: Record<MemberImportColumn, string[]> = {
+  name: ["name", "full_name", "fullname", "full name", "الاسم"],
+  national_id: [
+    "national_id",
+    "national id",
+    "nationalid",
+    "ssn",
+    "id_number",
+    "id number",
+    "الرقم القومي",
+  ],
+  gender: ["gender", "sex", "النوع"],
+  dob: ["dob", "date_of_birth", "birthdate", "birth_date", "تاريخ الميلاد"],
+  phone: [
+    "phone",
+    "phone_number",
+    "phone number",
+    "mobile",
+    "mobile_number",
+    "mobile number",
+    "رقم الهاتف",
+    "رقم الموبايل",
+  ],
+  address: ["address", "العنوان"],
+  unit: ["unit", "party_unit", "party unit", "الوحدة"],
+  email: ["email", "e-mail", "البريد الالكتروني", "البريد الإلكتروني"],
+  membership_type: [
+    "membership_type",
+    "membership type",
+    "نوع العضوية",
+  ],
+  membership_number: [
+    "membership_number",
+    "membership number",
+    "رقم العضوية",
+  ],
+  religion: ["religion", "الديانة"],
+  job: ["job", "occupation", "work", "الوظيفة"],
+  photo: ["photo", "الصورة"],
+  status: ["status", "الحالة"],
+  financial_support: [
+    "financial_support",
+    "financial support",
+    "الدعم المالي",
+  ],
+  notes: ["notes", "ملاحظات"],
+};
+
+const normalizeAliasKey = (value: unknown): MemberImportColumn | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const cleaned = value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  if (!cleaned) {
+    return null;
+  }
+
+  for (const column of MEMBER_IMPORT_COLUMNS) {
+    if (COLUMN_ALIAS_MAP[column].some((alias) => alias.replace(/[\s-]+/g, "_") === cleaned)) {
+      return column;
+    }
+  }
+
+  return null;
+};
 
 const DataEntryForm: React.FC = () => {
   const { t } = useTranslation();
@@ -296,7 +391,7 @@ const DataEntryForm: React.FC = () => {
     }
   };
 
-  // Excel Import Handler - Enhanced Excel file processing
+  // Excel Import Handler - Enhanced Excel/CSV file processing
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -306,22 +401,20 @@ const DataEntryForm: React.FC = () => {
     setIsImporting(true);
 
     try {
-      // Import Excel processing library
       const XLSX = await import("xlsx");
+      const fileName = file.name.toLowerCase();
+      const isCsv = fileName.endsWith(".csv") || file.type === "text/csv";
+      const fileContent = isCsv ? await file.text() : await file.arrayBuffer();
+      const workbook = XLSX.read(fileContent, { type: isCsv ? "string" : "array" });
 
-      // Read file as array buffer
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-
-      // Get first worksheet
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
 
-      // Convert to JSON with headers
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+      const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
         header: 1,
         defval: "",
         blankrows: false,
+        raw: false,
       });
 
       console.log("Excel data parsed:", jsonData);
@@ -335,8 +428,11 @@ const DataEntryForm: React.FC = () => {
         return;
       }
 
-      // Find data row (skip headers)
-      const dataRow = findDataRow(jsonData as unknown[][]);
+      const { headerRowIndex, headerMap } = detectHeaderRow(jsonData as unknown[][]);
+      const dataRow = findFirstDataRow(
+        jsonData as unknown[][],
+        headerRowIndex >= 0 ? headerRowIndex + 1 : 0,
+      );
 
       if (!dataRow || dataRow.length === 0) {
         addToast({
@@ -349,8 +445,8 @@ const DataEntryForm: React.FC = () => {
 
       console.log("Raw data row:", dataRow);
 
-      // Map Excel data to form fields with current structure
-      const mappedData = mapExcelDataToForm(dataRow);
+      const importRecord = mapRowToImportRecord(dataRow, headerMap);
+      const mappedData = mapRecordToForm(importRecord);
 
       if (!mappedData) {
         addToast({
@@ -361,13 +457,7 @@ const DataEntryForm: React.FC = () => {
         return;
       }
 
-      // Validate required fields
-      if (
-        !mappedData.fullName ||
-        !mappedData.nationalId ||
-        !mappedData.phoneNumber ||
-        !mappedData.email
-      ) {
+      if (!mappedData.fullName || !mappedData.nationalId || !mappedData.phoneNumber || !mappedData.email) {
         addToast({
           title: t("common.warning"),
           message:
@@ -377,7 +467,6 @@ const DataEntryForm: React.FC = () => {
         return;
       }
 
-      // Populate form with imported data
       populateFormWithExcelData(mappedData);
 
       console.log("Form populated with Excel data:", mappedData);
@@ -401,70 +490,99 @@ const DataEntryForm: React.FC = () => {
     }
   };
 
-  // Helper function to find data row in Excel
-  const findDataRow = (jsonData: unknown[][]): string[] => {
-    // Look for row that doesn't contain headers
-    for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
-      const row = jsonData[i];
-      if (
-        Array.isArray(row) &&
-        row.length > 0 &&
-        row[0] &&
-        typeof row[0] === "string" &&
-        row[0].trim()
-      ) {
-        // Skip rows that look like headers
-        const firstCell = row[0].toString().toLowerCase().trim();
-        if (
-          !firstCell.includes("name") &&
-          !firstCell.includes("الاسم") &&
-          !firstCell.includes("رقم") &&
-          !firstCell.includes("number") &&
-          !firstCell.includes("header")
-        ) {
-          return row as string[];
+  const detectHeaderRow = (
+    rows: unknown[][],
+  ): { headerRowIndex: number; headerMap: Record<number, MemberImportColumn> } => {
+    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+
+      const headerMap: Record<number, MemberImportColumn> = {};
+      row.forEach((cell, index) => {
+        const normalized = normalizeAliasKey(cell);
+        if (normalized && headerMap[index] === undefined) {
+          headerMap[index] = normalized;
         }
+      });
+
+      if (Object.keys(headerMap).length >= 5) {
+        return { headerRowIndex: i, headerMap };
       }
     }
 
-    // Fallback: use second row if first looks like header
-    if (jsonData.length > 1) {
-      return jsonData[1] as string[];
-    }
+    const fallbackMap: Record<number, MemberImportColumn> = {};
+    MEMBER_IMPORT_COLUMNS.forEach((column, index) => {
+      fallbackMap[index] = column;
+    });
 
-    // Last resort: use first row
-    return jsonData[0] as string[];
+    return { headerRowIndex: -1, headerMap: fallbackMap };
   };
 
-  // Map Excel data to form structure
-  const mapExcelDataToForm = (dataRow: string[]): {
-    fullName: string;
-    nationalId: string;
-    gender: "male" | "female";
-    phoneNumber: string;
-    partyUnit: string;
-    email: string;
-    membershipNumber: string;
-    age: number;
-    address: string;
-    job: string;
-    membershipType: MembershipType;
-    religion: Religion;
-  } | null => {
+  const findFirstDataRow = (rows: unknown[][], startIndex: number): unknown[] | null => {
+    for (let i = Math.max(startIndex, 0); i < rows.length; i++) {
+      const row = rows[i];
+      if (
+        Array.isArray(row) &&
+        row.some(
+          (cell) => cell !== null && cell !== undefined && cell.toString().trim().length > 0,
+        )
+      ) {
+        return row as unknown[];
+      }
+    }
+    return null;
+  };
+
+  const mapRowToImportRecord = (
+    row: unknown[],
+    headerMap: Record<number, MemberImportColumn>,
+  ): ImportRecord => {
+    const record: ImportRecord = {};
+
+    Object.entries(headerMap).forEach(([indexStr, column]) => {
+      const index = Number(indexStr);
+      const rawValue = row[index];
+      record[column] =
+        rawValue !== undefined && rawValue !== null ? rawValue.toString().trim() : "";
+    });
+
+    return record;
+  };
+
+  const mapRecordToForm = (
+    record: ImportRecord,
+  ):
+    | {
+        fullName: string;
+        nationalId: string;
+        gender: "male" | "female";
+        phoneNumber: string;
+        partyUnit: string;
+        email: string;
+        membershipNumber: string;
+        age: number;
+        address: string;
+        job: string;
+        membershipType: MembershipType;
+        religion: Religion;
+      }
+    | null => {
     try {
+      const age = record.dob ? calculateAgeFromDob(record.dob) : undefined;
+
       return {
-        fullName: (dataRow[0] as string)?.toString().trim() || "",
-        nationalId: (dataRow[1] as string)?.toString().trim() || "",
-        gender: parseGenderFromExcel(dataRow[2]),
-        religion: parseReligionFromExcel(dataRow[3]),
-        age: parseAgeFromExcel(dataRow[4]),
-        phoneNumber: (dataRow[5] as string)?.toString().trim() || "",
-        email: (dataRow[6] as string)?.toString().trim() || "",
-        job: (dataRow[7] as string)?.toString().trim() || "",
-        address: (dataRow[8] as string)?.toString().trim() || "",
-        partyUnit: parsePartyUnitFromExcel(dataRow[9]),
-        membershipNumber: (dataRow[10] as string)?.toString().trim() || "",
-        membershipType: parseMembershipTypeFromExcel(dataRow[11]),
+        fullName: record.name ?? "",
+        nationalId: record.national_id ?? "",
+        gender: parseGenderFromExcel(record.gender),
+        religion: parseReligionFromExcel(record.religion),
+        age: age ?? 18,
+        phoneNumber: record.phone ?? "",
+        email: record.email ?? "",
+        job: record.job ?? "",
+        address: record.address ?? "",
+        partyUnit: parsePartyUnitFromExcel(record.unit),
+        membershipNumber: record.membership_number ?? "",
+        membershipType: parseMembershipTypeFromExcel(record.membership_type),
       };
     } catch (error) {
       console.error("Error mapping Excel data:", error);
@@ -473,46 +591,69 @@ const DataEntryForm: React.FC = () => {
   };
 
   // Helper functions for parsing Excel data
-  const parseGenderFromExcel = (value: string): "male" | "female" => {
-    const genderStr = value?.toString().trim().toLowerCase();
-    if (genderStr === "ذكر" || genderStr === "male" || genderStr === "m") {
+  const parseGenderFromExcel = (value: unknown): "male" | "female" => {
+    const genderStr = value ? value.toString().trim().toLowerCase() : "";
+    if (["ذكر", "male", "m"].includes(genderStr)) {
       return "male";
     }
-    if (genderStr === "أنثى" || genderStr === "female" || genderStr === "f") {
+    if (["أنثى", "انثى", "female", "f"].includes(genderStr)) {
       return "female";
     }
-    return "male"; // default
+    return "male";
   };
 
-  const parseReligionFromExcel = (value: string): Religion =>
-    normalizeReligion(value);
+  const parseReligionFromExcel = (value: unknown): Religion =>
+    normalizeReligion(value ? value.toString() : "");
 
-  const parsePartyUnitFromExcel = (value: string): string => {
-    const unitStr = value?.toString().trim();
+  const parsePartyUnitFromExcel = (value: unknown): string => {
+    const unitStr = value ? value.toString().trim() : "";
     const validUnits = ["وراق الحضر", "وراق العرب", "جزيرة محمد", "طناش", "عزبة المفتى", "عزبة الخلايفة"];
 
-    if (validUnits.includes(unitStr)) {
+    if (unitStr && validUnits.includes(unitStr)) {
       return unitStr;
     }
 
-    // Default to first option if invalid
     return "وراق الحضر";
   };
 
-  const parseAgeFromExcel = (value: string | number): number => {
-    if (typeof value === "number") {
-      return Math.max(18, Math.min(80, value));
+  const calculateAgeFromDob = (value: unknown): number => {
+    const clampAge = (age: number) => Math.max(18, Math.min(80, age));
+
+    if (!value) {
+      return 18;
     }
 
-    const ageStr = value?.toString().trim();
-    if (!ageStr) return 18;
+    const toDate = (): Date | null => {
+      if (value instanceof Date) {
+        return value;
+      }
 
-    const age = parseInt(ageStr);
-    return isNaN(age) ? 18 : Math.max(18, Math.min(80, age));
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const asDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+        return Number.isNaN(asDate.getTime()) ? null : asDate;
+      }
+
+      const parsed = new Date(value.toString());
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const dobDate = toDate();
+    if (!dobDate) {
+      return 18;
+    }
+
+    const diffMs = Date.now() - dobDate.getTime();
+    const age = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 365.25));
+    if (!Number.isFinite(age) || age <= 0) {
+      return 18;
+    }
+
+    return clampAge(age);
   };
 
-  const parseMembershipTypeFromExcel = (value: string): MembershipType =>
-    normalizeMembershipType(value);
+  const parseMembershipTypeFromExcel = (value: unknown): MembershipType =>
+    normalizeMembershipType(value ? value.toString() : "");
 
   // Populate form with Excel data
   const populateFormWithExcelData = (data: {
@@ -614,7 +755,7 @@ const DataEntryForm: React.FC = () => {
               <label className="cursor-pointer">
                 <input
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleImportExcel}
                   className="hidden"
                   disabled={isImporting}

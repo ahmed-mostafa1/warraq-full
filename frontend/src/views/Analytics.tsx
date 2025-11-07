@@ -18,7 +18,7 @@ import AnimatedSection from "../components/animations/AnimatedSection";
 import Button from "../components/ui/Button";
 import { BarChart3, RefreshCw } from "lucide-react";
 import { useTheme } from "../hooks/useTheme";
-import { useActivity } from "../contexts/ActivityContext";
+import { useActivity } from "../contexts/activityContext";
 import type { Member } from "../types/member";
 import colourfulLogo from "/colourfull logo.png";
 import goldLogo from "/Gold logo.png";

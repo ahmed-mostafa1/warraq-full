@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { listMembers, type ApiMember } from "../services/members";
 import apiClient from "../lib/api";
 
-interface MemberRow extends Pick<ApiMember, "id" | "name" | "unit" | "status"> {}
+type MemberRow = Pick<ApiMember, "id" | "name" | "unit" | "status">;
 
 export const ConnectivityTest = () => {
   const [healthStatus, setHealthStatus] = useState<"idle" | "ok" | "error">(

@@ -385,8 +385,8 @@ export class ExcelService {
     return key
       .trim()
       .toLowerCase()
-      .replace(/[\s_\-]/g, "")
-      .replace(/["',\.]/g, "");
+      .replace(/[\s_-]/g, "")
+      .replace(/["',.]/g, "");
   }
 
   private static getCellValue(

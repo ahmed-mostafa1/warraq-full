@@ -37,7 +37,7 @@ import {
 } from "../types/member";
 import { useToastContext } from "../hooks/useToastContext";
 import { ExcelService } from "../services/excelService";
-import { useActivity } from "../contexts/ActivityContext";
+import { useActivity } from "../contexts/activityContext";
 import { useTheme } from "../hooks/useTheme";
 import colourfulLogo from "/colourfull logo.png";
 import goldLogo from "/Gold logo.png";

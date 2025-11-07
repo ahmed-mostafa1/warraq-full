@@ -23,7 +23,7 @@ import {
 } from "../types/member";
 import type { AppDispatch } from "../store";
 
-interface TableRow extends ApiMember {}
+type TableRow = ApiMember;
 
 const PAGE_SIZE = 20;
 
