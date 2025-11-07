@@ -17,6 +17,6 @@ class MemberSeeder extends Seeder
         Member::truncate();
         Schema::enableForeignKeyConstraints();
 
-        Member::factory(50)->create();
+        Member::factory(30)->create();
     }
 }

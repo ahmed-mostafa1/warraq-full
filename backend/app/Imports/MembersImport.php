@@ -27,7 +27,10 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
         'phone',
         'address',
         'unit',
+        'email',
         'membership_type',
+        'religion',
+        'job',
         'status',
         'financial_support',
         'notes',
@@ -136,7 +139,10 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
             'phone' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string'],
             'unit' => ['nullable', 'string'],
+            'email' => ['nullable', 'email', 'max:255'],
             'membership_type' => ['nullable', 'string'],
+            'religion' => ['nullable', 'string', 'max:150'],
+            'job' => ['nullable', 'string', 'max:150'],
             'status' => ['required', 'in:active,inactive'],
             'financial_support' => ['boolean'],
             'notes' => ['nullable', 'string'],
@@ -148,6 +154,9 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
         return [
             'national_id' => 'national_id',
             'membership_type' => 'membership_type',
+            'email' => 'email',
+            'religion' => 'religion',
+            'job' => 'job',
             'financial_support' => 'financial_support',
         ];
     }

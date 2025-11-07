@@ -25,12 +25,15 @@ class MembersImportExportTest extends TestCase
             'status' => 'active',
             'notes' => 'Old note',
             'financial_support' => true,
+            'email' => 'old@example.com',
+            'religion' => 'Old Religion',
+            'job' => 'Old Job',
         ]);
 
         $csvContent = implode("\n", [
-            'name,national_id,gender,dob,phone,address,unit,membership_type,status,financial_support,notes',
-            'Ahmed Ali,12345678901234,male,1990-05-05,01012345678,10 Downing Street,Unit A,regular,active,1,First import',
-            "Updated Name,{$existing->national_id},female,1988-03-03,01098765432,Updated Address,Unit B,committee,inactive,0,Updated note",
+            'name,national_id,gender,dob,phone,address,unit,email,membership_type,religion,job,status,financial_support,notes',
+            'Ahmed Ali,12345678901234,male,1990-05-05,01012345678,10 Downing Street,Unit A,ahmed@example.com,regular,Islam,Engineer,active,1,First import',
+            "Updated Name,{$existing->national_id},female,1988-03-03,01098765432,Updated Address,Unit B,updated@example.com,committee,Christianity,Doctor,inactive,0,Updated note",
             '',
         ]);
 
@@ -53,6 +56,9 @@ class MembersImportExportTest extends TestCase
             'status' => 'active',
             'financial_support' => 1,
             'notes' => 'First import',
+            'email' => 'ahmed@example.com',
+            'religion' => 'Islam',
+            'job' => 'Engineer',
         ]);
 
         $this->assertDatabaseHas('members', [
@@ -61,6 +67,9 @@ class MembersImportExportTest extends TestCase
             'status' => 'inactive',
             'financial_support' => 0,
             'notes' => 'Updated note',
+            'email' => 'updated@example.com',
+            'religion' => 'Christianity',
+            'job' => 'Doctor',
         ]);
     }
 
