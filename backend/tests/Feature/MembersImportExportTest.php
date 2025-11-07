@@ -26,7 +26,7 @@ class MembersImportExportTest extends TestCase
             'notes' => 'Old note',
             'financial_support' => true,
             'email' => 'old@example.com',
-            'religion' => 'Old Religion',
+            'religion' => 'مسلم',
             'job' => 'Old Job',
         ]);
 
@@ -57,7 +57,7 @@ class MembersImportExportTest extends TestCase
             'financial_support' => 1,
             'notes' => 'First import',
             'email' => 'ahmed@example.com',
-            'religion' => 'Islam',
+            'religion' => 'مسلم',
             'job' => 'Engineer',
         ]);
 
@@ -68,7 +68,7 @@ class MembersImportExportTest extends TestCase
             'financial_support' => 0,
             'notes' => 'Updated note',
             'email' => 'updated@example.com',
-            'religion' => 'Christianity',
+            'religion' => 'مسيحي',
             'job' => 'Doctor',
         ]);
     }
