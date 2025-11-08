@@ -414,7 +414,7 @@ const DataEntryForm: React.FC = () => {
         header: 1,
         defval: "",
         blankrows: false,
-        raw: false,
+        raw: true, // keep raw values so long numbers (e.g. national_id) are not formatted as scientific notation
       });
 
       console.log("Excel data parsed:", jsonData);

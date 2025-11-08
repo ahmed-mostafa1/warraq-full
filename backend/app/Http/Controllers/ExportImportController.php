@@ -76,7 +76,7 @@ class ExportImportController extends Controller
         $filename = 'members-' . now()->format('Ymd-His') . '.' . $format;
         $writer = $format === 'csv' ? ExcelWriter::CSV : ExcelWriter::XLSX;
 
-        return Excel::download(new MembersExport($filters), $filename, $writer);
+        return Excel::download(new MembersExport($filters, $format), $filename, $writer);
     }
 
     public function downloadFailure(string $id)

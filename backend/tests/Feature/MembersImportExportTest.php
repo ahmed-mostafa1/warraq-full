@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -117,5 +118,29 @@ class MembersImportExportTest extends TestCase
             return ($filters['gender'] ?? null) === 'ذكر'
                 && ($filters['job'] ?? null) === 'مهندس';
         });
+    }
+
+    #[Test]
+    public function it_formats_national_id_column_as_text(): void
+    {
+        $export = new MembersExport();
+
+        $formats = $export->columnFormats();
+
+        $this->assertArrayHasKey('B', $formats);
+        $this->assertSame(NumberFormat::FORMAT_TEXT, $formats['B']);
+    }
+
+    #[Test]
+    public function it_preserves_national_id_format_in_csv_exports(): void
+    {
+        $member = Member::factory()->make([
+            'national_id' => '29800000000013',
+        ]);
+
+        $export = new MembersExport([], 'csv');
+        $row = $export->map($member);
+
+        $this->assertSame('="29800000000013"', $row[1]);
     }
 }
