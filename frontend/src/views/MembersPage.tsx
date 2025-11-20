@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Sidebar from "../components/Sidebar";
 import TopNav from "../components/TopNav";
 import Card from "../components/ui/Card";
@@ -13,15 +14,30 @@ import {
   exportMembersExcel,
   type ApiMember,
   type MembersQueryParams,
+  importMembersExcel,
 } from "../services/members";
-import { Eye, Edit, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
+import {
+  Eye,
+  Edit,
+  FileInput,
+  FileSpreadsheet,
+  Plus,
+  Trash2,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+import clsx from "clsx";
+import colourfulLogo from "/colourfull logo.png";
 import { restoreMembers } from "../slices/membersSlice";
 import {
   normalizeMembershipType,
   normalizeReligion,
   type Member,
+  getMembershipTypeTranslationKey,
 } from "../types/member";
 import type { AppDispatch } from "../store";
+import { useToastContext } from "../hooks/useToastContext";
 
 type TableRow = ApiMember;
 
@@ -36,12 +52,48 @@ type FilterKey =
   | "membership_type"
   | "job";
 
+const FILTER_OPTION_KEYS: (FilterKey | "all")[] = [
+  "all",
+  "name",
+  "national_id",
+  "gender",
+  "religion",
+  "unit",
+  "membership_type",
+  "job",
+];
+
+const FILTER_OPTION_LABEL_KEY_MAP: Record<FilterKey | "all", string> = {
+  all: "members.page.filters.all",
+  name: "members.page.filters.name",
+  national_id: "members.page.filters.national_id",
+  gender: "members.page.filters.gender",
+  religion: "members.page.filters.religion",
+  unit: "members.page.filters.unit",
+  membership_type: "members.page.filters.membership_type",
+  job: "members.page.filters.job",
+};
+
+const SEARCH_PLACEHOLDER_KEY_MAP: Record<FilterKey | "all", string> = {
+  all: "members.page.searchPlaceholder.all",
+  name: "members.page.searchPlaceholder.name",
+  national_id: "members.page.searchPlaceholder.national_id",
+  gender: "members.page.searchPlaceholder.gender",
+  religion: "members.page.searchPlaceholder.religion",
+  unit: "members.page.searchPlaceholder.unit",
+  membership_type: "members.page.searchPlaceholder.membership_type",
+  job: "members.page.searchPlaceholder.job",
+};
+
 const MembersPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { t } = useTranslation();
+  const { addToast } = useToastContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allRows, setAllRows] = useState<TableRow[]>([]);
   const [rows, setRows] = useState<TableRow[]>([]);
@@ -51,19 +103,25 @@ const MembersPage = () => {
     "all",
   );
   const initialLoadRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<TableRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
   const filterOptions = useMemo(
-    () => [
-      { value: "all", label: "بحث شامل" },
-      { value: "name", label: "الاسم" },
-      { value: "national_id", label: "الرقم القومي" },
-      { value: "gender", label: "النوع" },
-      { value: "religion", label: "الديانة" },
-      { value: "unit", label: "الوحدة" },
-      { value: "membership_type", label: "نوع العضوية" },
-      { value: "job", label: "الوظيفة" },
-    ],
-    [],
+    () =>
+      FILTER_OPTION_KEYS.map((key) => ({
+        value: key,
+        label: t(FILTER_OPTION_LABEL_KEY_MAP[key]),
+      })),
+    [t],
   );
+
+  const quickFilters: (FilterKey | "all")[] = ["all", "name", "unit", "membership_type"];
+  const activeFilterLabel = useMemo(() => {
+    const match = filterOptions.find((option) => option.value === selectedFilter);
+    return match?.label ?? t("members.page.filters.all");
+  }, [filterOptions, selectedFilter, t]);
 
   const mapApiMemberToMember = useCallback((member: ApiMember): Member => {
     const membershipType = normalizeMembershipType(member.membership_type);
@@ -130,38 +188,22 @@ const MembersPage = () => {
         setError(null);
       } catch (err) {
         console.error("[MembersPage] failed to load members", err);
-        setError("تعذر تحميل البيانات. حاول مرة أخرى.");
+        setError(t("members.page.loadError"));
       } finally {
         setIsLoading(false);
       }
     },
-    [dispatch, mapApiMemberToMember],
+    [dispatch, mapApiMemberToMember, t],
   );
 
   useEffect(() => {
     console.log("[MembersPage] mount");
   }, []);
 
-  const searchPlaceholder = useMemo(() => {
-    switch (selectedFilter) {
-      case "name":
-        return "ابحث بالاسم";
-      case "national_id":
-        return "ابحث بالرقم القومي";
-      case "gender":
-        return "ابحث بالنوع (ذكر / أنثى)";
-      case "religion":
-        return "ابحث بالديانة";
-      case "unit":
-        return "ابحث باسم الوحدة";
-      case "membership_type":
-        return "ابحث بنوع العضوية";
-      case "job":
-        return "ابحث بالوظيفة";
-      default:
-        return "ابحث في جميع الحقول";
-    }
-  }, [selectedFilter]);
+  const searchPlaceholder = useMemo(
+    () => t(SEARCH_PLACEHOLDER_KEY_MAP[selectedFilter]),
+    [selectedFilter, t],
+  );
 
   const currentQueryParams = useMemo<MembersQueryParams>(() => {
     const params: MembersQueryParams = {};
@@ -223,11 +265,80 @@ const MembersPage = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("[MembersPage] export failed", err);
-      alert("تعذر تصدير البيانات. حاول مرة أخرى.");
+      window.alert(t("members.page.exportError"));
     } finally {
       setIsExporting(false);
     }
-  }, [currentQueryParams]);
+  }, [currentQueryParams, t]);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setPendingImportFile(file);
+    event.target.value = "";
+  };
+
+  const cancelImport = () => {
+    if (isProcessingImport) return;
+    setPendingImportFile(null);
+    addToast({
+      title: t("common.info"),
+      message: t("members.page.importCanceled"),
+      type: "info",
+    });
+  };
+
+  const confirmImport = async () => {
+    if (!pendingImportFile) return;
+    setIsProcessingImport(true);
+    setIsImporting(true);
+    try {
+      const result = await importMembersExcel(pendingImportFile);
+
+      addToast({
+        title: t("common.success"),
+        message: t("members.page.importSuccess", {
+          inserted: result.inserted,
+          failed: result.failed,
+        }),
+        type: "success",
+      });
+
+      if (result.failed > 0 || result.warnings.length > 0) {
+        addToast({
+          title: t("common.warning"),
+          message: t("members.page.importWarnings", {
+            failed: result.failed,
+            warnings: result.warnings.length,
+          }),
+          type: "warning",
+        });
+      }
+
+      await load(currentQueryParams);
+    } catch (error) {
+      addToast({
+        title: t("common.error"),
+        message: t("members.page.importError", {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        type: "error",
+      });
+    } finally {
+      setIsProcessingImport(false);
+      setIsImporting(false);
+      setPendingImportFile(null);
+    }
+  };
 
   const handleEdit = (member: TableRow) => {
     navigate(`/entry/${member.id}`);
@@ -237,19 +348,40 @@ const MembersPage = () => {
     navigate(`/member/${member.id}`);
   };
 
-  const handleDelete = async (member: TableRow) => {
-    const confirmed = window.confirm(`هل أنت متأكد من حذف العضو ${member.name}؟`);
-    if (!confirmed) return;
+  const handleDelete = (member: TableRow) => {
+    setPendingDelete(member);
+  };
+
+  const cancelDelete = () => {
+    if (isDeleting) return;
+    setPendingDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteMemberApi(Number(member.id));
+      await deleteMemberApi(Number(pendingDelete.id));
       setAllRows((prev) => {
-        const updated = prev.filter((row) => row.id !== member.id);
+        const updated = prev.filter((row) => row.id !== pendingDelete.id);
         dispatch(restoreMembers(updated.map(mapApiMemberToMember)));
         return updated;
       });
+      addToast({
+        title: t("common.success"),
+        message: t("members.deleteSuccess", { name: pendingDelete.name ?? "" }),
+        type: "success",
+      });
     } catch (err) {
       console.error("[MembersPage] delete failed", err);
-      alert("تعذر حذف العضو. حاول مرة أخرى.");
+      addToast({
+        title: t("common.error"),
+        message: t("members.page.deleteError"),
+        type: "error",
+      });
+    } finally {
+      setIsDeleting(false);
+      setPendingDelete(null);
     }
   };
 
@@ -260,54 +392,134 @@ const MembersPage = () => {
         <TopNav onMenuClick={() => setSidebarOpen((prev) => !prev)} />
 
         <main className="flex-1 overflow-y-auto p-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              الأعضاء
-            </h1>
-          </div>
-          <Card className="mb-4 p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-1 flex-wrap items-center gap-3">
-                <Input
-                  name="search"
-                  value={searchTerm}
-                  onChange={(event) => {
-                    setSearchTerm(event.target.value);
-                    setPage(1);
-                  }}
-                  placeholder={searchPlaceholder}
-                  className="flex-1 min-w-[200px]"
-                />
-                <Select
-                  value={selectedFilter}
-                  onChange={(event) => {
-                    const value = event.target.value as FilterKey | "all";
-                    setSelectedFilter(value);
-                    setPage(1);
-                  }}
-                  options={filterOptions}
-                  className="min-w-[160px]"
+          <Card className="mb-6 overflow-hidden border-none bg-gradient-to-r from-rose-600 via-rose-500 to-amber-400 text-white shadow-xl">
+            <div className="relative flex items-center justify-center p-8">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-3xl bg-white/20 blur-3xl" aria-hidden />
+                <img
+                  src={colourfulLogo}
+                  alt={t("app.title")}
+                  className="relative h-64 w-64 rounded-3xl object-contain shadow-2xl ring-4 ring-white/50 transition-transform duration-500 hover:scale-105"
+                  loading="lazy"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex items-center gap-2 whitespace-nowrap"
-                  onClick={handleExport}
-                  disabled={isLoading || isExporting}
-                >
-                  {isExporting ? "جاري التصدير..." : "تصدير Excel"}
-                  <FileSpreadsheet className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => navigate("/entry")}
-                  className="flex items-center gap-2 whitespace-nowrap"
-                  rightIcon={<Plus className="h-4 w-4" />}
-                >
-                  إضافة عضو
-                </Button>
+            </div>
+          </Card>
+          <Card className="mb-4 border-none bg-white/80 p-4 shadow-xl backdrop-blur dark:bg-slate-900/60">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+                <div className="flex-1">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    <Search className="h-4 w-4" />
+                    {t("members.page.searchLabel", "بحث ذكي")}
+                  </label>
+                  <Input
+                    name="search"
+                    value={searchTerm}
+                    onChange={(event) => {
+                      setSearchTerm(event.target.value);
+                      setPage(1);
+                    }}
+                    placeholder={searchPlaceholder}
+                    leftIcon={<Search className="h-4 w-4" />}
+                    rightIcon={
+                      searchTerm ? (
+                        <button
+                          type="button"
+                          className="rounded-lg bg-red-500/10 p-1 text-red-600 transition hover:bg-red-500/20"
+                          onClick={() => {
+                            setSearchTerm("");
+                            setPage(1);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : undefined
+                    }
+                    className="min-w-[220px] bg-white/70 shadow-lg dark:bg-slate-900/70"
+                  />
+                </div>
+                <div className="flex flex-col gap-2 lg:w-72">
+                  <label className="mb-1 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    {t("members.page.filterLabel", "تصفية متقدمة")}
+                  </label>
+                  <Select
+                    value={selectedFilter}
+                    onChange={(event) => {
+                      const value = event.target.value as FilterKey | "all";
+                      setSelectedFilter(value);
+                      setPage(1);
+                    }}
+                    options={filterOptions}
+                    className="rounded-2xl border-0 bg-slate-100/80 text-slate-900 shadow-inner focus:ring-red-500 dark:bg-slate-800/70 dark:text-white"
+                  />
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    {t("members.page.activeFilter", "المرشح الحالي")}: {activeFilterLabel}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    {t("members.page.quickFilters", "تصفية سريعة")}
+                  </span>
+                  {quickFilters.map((filterKey) => (
+                    <button
+                      key={filterKey}
+                      type="button"
+                      onClick={() => {
+                        setSelectedFilter(filterKey);
+                        setPage(1);
+                      }}
+                      className={clsx(
+                        "rounded-full px-4 py-1 text-sm font-medium transition",
+                        selectedFilter === filterKey
+                          ? "bg-rose-600 text-white shadow"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+                      )}
+                    >
+                      {t(FILTER_OPTION_LABEL_KEY_MAP[filterKey])}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex items-center gap-2 whitespace-nowrap"
+                    onClick={handleExport}
+                    disabled={isLoading || isExporting}
+                  >
+                    {isExporting ? t("members.page.exporting") : t("export.excel")}
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex items-center gap-2 whitespace-nowrap"
+                    onClick={handleImportClick}
+                    disabled={isLoading || isImporting}
+                  >
+                    {isImporting ? t("members.page.importing") : t("import.excel")}
+                    <FileInput className="h-4 w-4" />
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={handleImportFileChange}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => navigate("/entry")}
+                    className="flex items-center gap-2 whitespace-nowrap"
+                    rightIcon={<Plus className="h-4 w-4" />}
+                  >
+                    {t("navigation.addMember")}
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
@@ -324,36 +536,46 @@ const MembersPage = () => {
                 <thead className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   <tr>
                     <th className="px-4 py-3 font-semibold">#</th>
-                    <th className="px-4 py-3 font-semibold">الاسم</th>
-                    <th className="px-4 py-3 font-semibold">الوحدة</th>
-                    <th className="px-4 py-3 font-semibold">نوع العضوية</th>
-                    <th className="px-4 py-3 font-semibold">آخر تحديث</th>
-                    <th className="px-4 py-3 font-semibold">الإجراءات / Actions</th>
+                    <th className="px-4 py-3 font-semibold">{t("members.fullName")}</th>
+                    <th className="px-4 py-3 font-semibold">{t("members.partyUnit")}</th>
+                    <th className="px-4 py-3 font-semibold">{t("members.membershipType")}</th>
+                    <th className="px-4 py-3 font-semibold">{t("members.lastUpdated")}</th>
+                    <th className="px-4 py-3 font-semibold">{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                   {isLoading ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                        يجري تحميل البيانات...
+                        {t("members.page.loading")}
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                        لا توجد بيانات مطابقة للبحث الحالي.
+                        {t("members.page.noResults")}
                       </td>
                     </tr>
                   ) : (
                     rows.map((row) => (
                       <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                        <td className="px-4 py-3">{row.id}</td>
+                        <td className="px-4 py-3 text-slate-800 dark:text-white">
+                          {row.id}
+                        </td>
                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
                           {row.name}
                         </td>
-                        <td className="px-4 py-3">{row.unit ?? "—"}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-white">
+                          {row.unit ?? "—"}
+                        </td>
                         <td className="px-4 py-3 capitalize text-slate-700 dark:text-slate-200">
-                          {row.membership_type ?? "—"}
+                          {row.membership_type
+                            ? t(
+                                `members.memberTypes.${getMembershipTypeTranslationKey(
+                                  normalizeMembershipType(row.membership_type),
+                                )}`,
+                              )
+                            : "—"}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
                           {new Date(row.updated_at).toLocaleDateString()}
@@ -395,7 +617,7 @@ const MembersPage = () => {
 
             <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
               <div>
-                الصفحة {page} من {totalPages}
+                {t("members.page.paginationStatus", { page, total: totalPages })}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -404,7 +626,7 @@ const MembersPage = () => {
                   disabled={page <= 1 || isLoading}
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                 >
-                  السابق
+                  {t("common.previous")}
                 </Button>
                 <Button
                   variant="outline"
@@ -412,13 +634,77 @@ const MembersPage = () => {
                   disabled={page >= totalPages || isLoading}
                   onClick={() => setPage((prev) => prev + 1)}
                 >
-                  التالي
+                  {t("common.next")}
                 </Button>
               </div>
             </div>
           </Card>
         </main>
       </div>
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md bg-white dark:bg-dark-background-primary">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {t("members.page.deleteConfirmTitle")}
+              </h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {t("members.page.deleteConfirmMessage", {
+                  name: pendingDelete.name ?? "",
+                })}
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={cancelDelete}
+                disabled={isDeleting}
+              >
+                {t("members.page.deleteCancel")}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmDelete}
+                isLoading={isDeleting}
+              >
+                {t("members.page.deleteConfirmButton")}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+      {pendingImportFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md bg-white dark:bg-dark-background-primary">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {t("members.page.importConfirmTitle")}
+              </h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {t("members.page.importConfirmMessage", {
+                  fileName: pendingImportFile.name,
+                })}
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={cancelImport}
+                disabled={isProcessingImport}
+              >
+                {t("members.page.importCancel")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmImport}
+                isLoading={isProcessingImport}
+              >
+                {t("members.page.importConfirmButton")}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

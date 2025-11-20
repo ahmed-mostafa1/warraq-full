@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useForm, Controller } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -13,7 +13,6 @@ import {
   Calendar,
   Building,
   CreditCard,
-  Download,
   ArrowLeft,
   Edit,
   Eye,
@@ -153,6 +152,9 @@ const DataEntryForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
 
   const dispatch = useDispatch<AppDispatch>();
   const { list: members } = useSelector((state: RootState) => state.members);
@@ -391,11 +393,7 @@ const DataEntryForm: React.FC = () => {
     }
   };
 
-  // Excel Import Handler - Enhanced Excel/CSV file processing
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processImportExcel = async (file: File) => {
     console.log("=== EXCEL IMPORT START ===");
     console.log("File:", file.name, "Size:", file.size, "Type:", file.type);
     setIsImporting(true);
@@ -414,7 +412,7 @@ const DataEntryForm: React.FC = () => {
         header: 1,
         defval: "",
         blankrows: false,
-        raw: true, // keep raw values so long numbers (e.g. national_id) are not formatted as scientific notation
+        raw: true,
       });
 
       console.log("Excel data parsed:", jsonData);
@@ -486,7 +484,29 @@ const DataEntryForm: React.FC = () => {
     } finally {
       console.log("=== EXCEL IMPORT END ===");
       setIsImporting(false);
-      e.target.value = "";
+    }
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingImportFile(file);
+    e.target.value = "";
+  };
+
+  const cancelImport = () => {
+    if (isProcessingImport) return;
+    setPendingImportFile(null);
+  };
+
+  const confirmImport = async () => {
+    if (!pendingImportFile) return;
+    setIsProcessingImport(true);
+    try {
+      await processImportExcel(pendingImportFile);
+    } finally {
+      setIsProcessingImport(false);
+      setPendingImportFile(null);
     }
   };
 
@@ -754,24 +774,17 @@ const DataEntryForm: React.FC = () => {
             <AnimatedSection className="flex flex-wrap gap-3 mb-6" delay={0.1}>
               <label className="cursor-pointer">
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept=".xlsx,.xls,.csv"
-                  onChange={handleImportExcel}
+                  onChange={handleImportFileChange}
                   className="hidden"
                   disabled={isImporting}
-                  id="excel-import-input"
                 />
                 <Button
                   variant="outline"
-                  size="lg"
-                  disabled={isImporting}
-                  leftIcon={<Download className="h-5 w-5" />}
-                  className="px-6 py-3 text-lg"
-                  onClick={() => {
-                    console.log("=== IMPORT BUTTON CLICKED ===");
-                    console.log("Triggering file input...");
-                    document.getElementById("excel-import-input")?.click();
-                  }}
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   {t("common.import")}
                 </Button>
@@ -1142,6 +1155,38 @@ const DataEntryForm: React.FC = () => {
           </Card>
         </main>
       </div>
+      {pendingImportFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md bg-white dark:bg-dark-background-primary">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {t("members.entry.importConfirmTitle")}
+              </h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {t("members.entry.importConfirmMessage", {
+                  fileName: pendingImportFile.name,
+                })}
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={cancelImport}
+                disabled={isProcessingImport}
+              >
+                {t("members.entry.importCancel")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmImport}
+                isLoading={isProcessingImport}
+              >
+                {t("members.entry.importConfirmButton")}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

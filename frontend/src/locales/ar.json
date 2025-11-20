@@ -43,6 +43,7 @@
     "christianMembers": "المسيحيين",
     "newAgeGroups": "الفئات العمرية ",
     "viewDetails": "عرض التفاصيل",
+    "actions": "الإجراءات",
     "exportSelected": "تصدير المحدد",
     "deleteSelected": "حذف المحدد",
     "memberName": "اسم العضو",
@@ -152,6 +153,8 @@
     "activeMembers": "الأعضاء النشطين",
     "newRegistrations": "التسجيلات الجديدة",
     "paidMembers": "الأعضاء المدفوعين",
+    "recentActivity": "النشاطات الأخيرة",
+    "noRecentActivity": "لا توجد أنشطة حديثة",
     "ageGroups": {
       "18-25": "18-25 سنة",
       "25-35": "25-35 سنة",
@@ -179,6 +182,9 @@
     "printSuccess": "تم إعداد التقرير للطباعة",
     "excelError": "حدث خطأ أثناء تصدير البيانات إلى إكسل",
     "pdfError": "حدث خطأ أثناء تصدير البيانات إلى PDF"
+  },
+  "import": {
+    "excel": "استيراد من إكسل"
   },
   "members": {
     "title": "قائمة الأعضاء",
@@ -270,7 +276,58 @@
     "addSuccessWithName": "تم إضافة العضو {{name}} بنجاح",
     "addDuplicateError": "خطأ في إضافة العضو - قد تكون البيانات مكررة",
     "memberNotFound": "لا يمكن ايجاد العضو",
-    "memberNotFoundDescription": "لم يتم العثور على العضو المطلوب أو قد يكون قد تم حذفه."
+    "memberNotFoundDescription": "لم يتم العثور على العضو المطلوب أو قد يكون قد تم حذفه.",
+    "page": {
+      "title": "إدارة الأعضاء",
+      "filters": {
+        "all": "بحث شامل",
+        "name": "الاسم",
+        "national_id": "الرقم القومي",
+        "gender": "النوع",
+        "religion": "الديانة",
+        "unit": "الوحدة",
+        "membership_type": "نوع العضوية",
+        "job": "الوظيفة"
+      },
+      "searchPlaceholder": {
+        "all": "ابحث في جميع الحقول",
+        "name": "ابحث بالاسم",
+        "national_id": "ابحث بالرقم القومي",
+        "gender": "ابحث بالنوع (ذكر / أنثى)",
+        "religion": "ابحث بالديانة",
+        "unit": "ابحث باسم الوحدة",
+        "membership_type": "ابحث بنوع العضوية",
+        "job": "ابحث بالوظيفة"
+      },
+      "loadError": "تعذر تحميل البيانات. حاول مرة أخرى.",
+      "exportError": "تعذر تصدير البيانات. حاول مرة أخرى.",
+      "deleteConfirm": "هل أنت متأكد من حذف العضو {{name}}؟",
+      "deleteError": "تعذر حذف العضو. حاول مرة أخرى.",
+      "exporting": "جاري التصدير...",
+      "importing": "جاري الاستيراد...",
+      "loading": "يجري تحميل البيانات...",
+      "noResults": "لا توجد بيانات مطابقة للبحث الحالي.",
+      "paginationStatus": "الصفحة {{page}} من {{total}}",
+      "importConfirm": "هل ترغب في استيراد الأعضاء من الملف {{fileName}}؟ سيتم حفظهم في النظام بعد التأكيد.",
+      "importCanceled": "تم إلغاء عملية الاستيراد.",
+      "importSuccess": "تم استيراد {{inserted}} عضو بنجاح. عدد الإخفاقات: {{failed}}",
+      "importWarnings": "تم رصد {{failed}} إخفاق و {{warnings}} تحذير أثناء الاستيراد.",
+      "importError": "فشل في استيراد الأعضاء: {{error}}",
+      "importConfirmTitle": "تأكيد استيراد الأعضاء",
+      "importConfirmMessage": "سيتم استيراد الأعضاء من الملف {{fileName}} وإضافتهم للنظام بعد الموافقة.",
+      "importConfirmButton": "تأكيد الاستيراد",
+      "importCancel": "إلغاء",
+      "deleteConfirmTitle": "تأكيد حذف العضو",
+      "deleteConfirmMessage": "هل أنت متأكد من حذف العضو {{name}}؟ سيتم حذف بياناته نهائياً من النظام.",
+      "deleteConfirmButton": "تأكيد الحذف",
+      "deleteCancel": "إلغاء"
+    },
+    "entry": {
+      "importConfirmTitle": "تأكيد استيراد بيانات العضو",
+      "importConfirmMessage": "سيتم استيراد بيانات العضو من الملف {{fileName}} وتعبئة النموذج تلقائياً.",
+      "importConfirmButton": "متابعة الاستيراد",
+      "importCancel": "إلغاء"
+    }
   },
   "forms": {
     "validation": {
@@ -347,33 +404,6 @@
     "exportError": "حدث خطأ أثناء تصدير البيانات",
     "loginErrorTitle": "خطأ في تسجيل الدخول",
     "loginErrorMessage": "يرجى التحقق من صحة البيانات والمحاولة مرة أخرى"
-  },
-  "analytics": {
-    "recentActivity": "النشاطات الأخيرة",
-    "noRecentActivity": "لا توجد أنشطة حديثة",
-    "subtitle": "نظرة شاملة على بيانات الأعضاء والنشاطات",
-    "totalMembersTitle": "إجمالي أعضاء الحزب",
-    "asOf": "حتى تاريخ",
-    "registeredMemberText": "عضو مسجل",
-    "registrationTrends": "اتجاهات التسجيل",
-    "registrations": "التسجيلات",
-    "noDataAvailable": "لا توجد بيانات متاحة",
-    "memberTypeDistribution": "توزيع أنواع العضوية",
-    "ageDistribution": "توزيع العمر",
-    "partyUnitDistribution": "توزيع الوحدات الحزبية",
-    "genderDistribution": "توزيع الجنس",
-    "religionDistribution": "توزيع الدين",
-    "ageGroups": {
-      "18-25": "18-25 سنة",
-      "25-35": "25-35 سنة",
-      "35-45": "35-45 سنة",
-      "45-60": "45-60 سنة",
-      "60-80": "60-80 سنة"
-    },
-    "genderLabels": {
-      "male": "ذكر",
-      "female": "أنثى"
-    }
   },
   "backup": {
     "title": "النسخ الإحتياطي",
