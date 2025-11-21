@@ -290,8 +290,6 @@ const MembersPage = () => {
   };
 
   const handleDelete = async (member: TableRow) => {
-    const confirmed = window.confirm(`هل أنت متأكد من حذف العضو ${member.name}؟`);
-    if (!confirmed) return;
     try {
       await deleteMemberApi(Number(member.id));
       setAllRows((prev) => {
