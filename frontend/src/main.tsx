@@ -7,7 +7,7 @@ import "./index.css";
 import App from "./App.tsx";
 import i18n from "./i18n";
 import { store } from "./store";
-import { ActivityProvider } from "./contexts/ActivityContext.tsx";
+import { ActivityProvider } from "./contexts/ActivityContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./contexts/ToastContext";
 
