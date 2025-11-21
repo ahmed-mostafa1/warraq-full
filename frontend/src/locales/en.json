@@ -186,9 +186,6 @@
     "excelError": "Error exporting data to Excel",
     "pdfError": "Error exporting data to PDF"
   },
-  "import": {
-    "excel": "Import from Excel"
-  },
   "members": {
     "title": "Members List",
     "memberProfile": "Member Profile",
@@ -278,54 +275,7 @@
     "addSuccessWithName": "Member {{name}} added successfully",
     "addDuplicateError": "Error adding member - data may be duplicated",
     "memberNotFound": "Member cannot be found",
-    "memberNotFoundDescription": "The requested member could not be found or may have been deleted.",
-    "page": {
-      "title": "Members Management",
-      "filters": {
-        "all": "All Fields",
-        "name": "Name",
-        "national_id": "National ID",
-        "gender": "Gender",
-        "religion": "Religion",
-        "unit": "Party Unit",
-        "membership_type": "Membership Type",
-        "job": "Job"
-      },
-      "searchPlaceholder": {
-        "all": "Search across all fields",
-        "name": "Search by name",
-        "national_id": "Search by national ID",
-        "gender": "Search by gender (male/female)",
-        "religion": "Search by religion",
-        "unit": "Search by party unit",
-        "membership_type": "Search by membership type",
-        "job": "Search by job title"
-      },
-      "loadError": "Unable to load data. Please try again.",
-      "exportError": "Unable to export data. Please try again.",
-      "deleteConfirm": "Are you sure you want to delete member {{name}}?",
-      "deleteError": "Unable to delete the member. Please try again.",
-      "exporting": "Exporting...",
-      "importing": "Importing...",
-      "loading": "Loading data...",
-      "noResults": "No data matches the current search.",
-      "paginationStatus": "Page {{page}} of {{total}}",
-      "importConfirm": "Do you want to import members from {{fileName}}? Imported members will be saved after confirmation.",
-      "importCanceled": "Import operation has been canceled.",
-      "importSuccess": "Successfully imported {{inserted}} members. Failures: {{failed}}",
-      "importWarnings": "Import completed with {{failed}} failures and {{warnings}} warnings.",
-      "importError": "Failed to import members: {{error}}",
-      "deleteConfirmTitle": "Confirm member deletion",
-      "deleteConfirmMessage": "Are you sure you want to delete member {{name}}? This action cannot be undone.",
-      "deleteConfirmButton": "Confirm deletion",
-      "deleteCancel": "Cancel"
-    }
-  },
-  "membersEntry": {
-    "importConfirmTitle": "Confirm member import",
-    "importConfirmMessage": "The member data from {{fileName}} will populate the form automatically after confirmation.",
-    "importConfirmButton": "Proceed with import",
-    "importCancel": "Cancel"
+    "memberNotFoundDescription": "The requested member could not be found or may have been deleted."
   },
   "forms": {
     "validation": {
