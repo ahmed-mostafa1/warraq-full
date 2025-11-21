@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 | paths starting with "api/" so backend endpoints keep working.
 */
 
-Route::get('/', function () {
+$serveSpa = static function () {
     $indexPath = public_path('index.html');
 
     if (File::exists($indexPath)) {
@@ -20,14 +20,31 @@ Route::get('/', function () {
     }
 
     return view('welcome');
-});
+};
 
-Route::get('/{any}', function () {
-    $indexPath = public_path('index.html');
+Route::get('/', $serveSpa);
 
-    if (File::exists($indexPath)) {
-        return response()->file($indexPath);
+Route::get('/{any}', function (string $any) use ($serveSpa) {
+    if (str_contains($any, '..')) {
+        abort(404);
     }
 
-    abort(404);
+    if (str_contains($any, '.')) {
+        $candidatePath = public_path($any);
+        $resolvedPath = realpath($candidatePath);
+        $publicRoot = realpath(public_path());
+
+        if (
+            $resolvedPath !== false &&
+            $publicRoot !== false &&
+            str_starts_with($resolvedPath, $publicRoot) &&
+            is_file($resolvedPath)
+        ) {
+            return response()->file($resolvedPath);
+        }
+
+        abort(404);
+    }
+
+    return $serveSpa();
 })->where('any', '^(?!api/).*');
