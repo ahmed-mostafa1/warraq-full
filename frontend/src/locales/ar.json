@@ -243,6 +243,8 @@
     "bulkDeleteError": "حدث خطأ أثناء حذف الأعضاء المحددين",
     "exportSuccess": "تم تصدير {{count}} عضو إلى Excel",
     "exportError": "حدث خطأ أثناء تصدير البيانات",
+    "importSummary": "تمت إضافة {{inserted}} عضو بنجاح. تم تخطي {{failed}} صفوف تحتوي على أخطاء.",
+    "importError": "فشل استيراد الأعضاء. يرجى التحقق من الملف والمحاولة مرة أخرى.",
     "pagination": {
       "showing": "عرض {{from}} إلى {{to}} من أصل {{total}} عضو",
       "showingMobile": "{{current}} / {{total}}"

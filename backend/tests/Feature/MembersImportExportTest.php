@@ -49,8 +49,8 @@ class MembersImportExportTest extends TestCase
         $response->assertOk();
         $response->assertJson([
             'inserted' => 1,
-            'updated' => 1,
-            'failed' => 0,
+            'updated' => 0,
+            'failed' => 1,
         ]);
 
         $this->assertDatabaseHas('members', [
@@ -68,15 +68,15 @@ class MembersImportExportTest extends TestCase
 
         $this->assertDatabaseHas('members', [
             'id' => $existing->id,
-            'name' => 'Updated Name',
-            'status' => 'inactive',
-            'financial_support' => 0,
-            'notes' => 'Updated note',
-            'email' => 'updated@example.com',
-            'religion' => 'مسيحي',
-            'job' => 'Doctor',
-            'membership_number' => 'MEM-999',
-            'photo' => 'photos/updated.jpg',
+            'name' => $existing->name,
+            'status' => 'active',
+            'financial_support' => 1,
+            'notes' => 'Old note',
+            'email' => 'old@example.com',
+            'religion' => 'مسلم',
+            'job' => 'Old Job',
+            'membership_number' => 'OLD-001',
+            'photo' => 'photos/old.jpg',
         ]);
     }
 

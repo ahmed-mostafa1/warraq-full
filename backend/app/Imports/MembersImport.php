@@ -55,14 +55,9 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
 
         $normalized = $this->normalizeRow($raw);
 
-        $existing = null;
-        if (! empty($normalized['national_id']) && is_string($normalized['national_id'])) {
-            $existing = Member::where('national_id', $normalized['national_id'])->first();
-        }
-
         $validator = Validator::make(
             $normalized,
-            $this->rules($existing?->id),
+            $this->rules(),
             [],
             $this->attributes()
         );
@@ -92,14 +87,8 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
         $payload['gender'] = $this->mapGenderForStorage($payload['gender'] ?? null);
         $payload['financial_support'] = (bool) ($payload['financial_support'] ?? false);
 
-        if ($existing) {
-            $existing->fill($payload);
-            $existing->save();
-            $this->updated++;
-        } else {
-            Member::create($payload);
-            $this->inserted++;
-        }
+        Member::create($payload);
+        $this->inserted++;
     }
 
     public function getInsertedCount(): int
@@ -127,14 +116,14 @@ class MembersImport implements OnEachRow, WithHeadingRow, SkipsOnFailure, SkipsE
         return $this->warnings;
     }
 
-    protected function rules(?int $currentMemberId): array
+    protected function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:150'],
             'national_id' => [
                 'nullable',
                 'string',
-                Rule::unique('members', 'national_id')->ignore($currentMemberId),
+                Rule::unique('members', 'national_id'),
             ],
             'gender' => ['nullable', 'in:male,female'],
             'dob' => ['nullable', 'date', 'before_or_equal:today'],

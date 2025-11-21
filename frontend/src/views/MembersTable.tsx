@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import type { AxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
 import type { AppDispatch, RootState } from "../store";
@@ -9,6 +10,7 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  Download,
   Edit,
   Eye,
   FileSpreadsheet,
@@ -25,11 +27,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import AnimatedButton from "../components/animations/AnimatedButton";
 import AnimatedGroup from "../components/animations/AnimatedGroup";
-import {
-  getMembers,
-  deleteMember,
-  restoreMembers,
-} from "../slices/membersSlice";
+import { getMembers, deleteMember, restoreMembers } from "../slices/membersSlice";
 import {
   getMembershipTypeTranslationKey,
   getReligionTranslationKey,
@@ -37,16 +35,23 @@ import {
 } from "../types/member";
 import { useToastContext } from "../hooks/useToastContext";
 import { ExcelService } from "../services/excelService";
+import { importMembersExcel } from "../services/members";
 import { useActivity } from "../contexts/activityContext";
 import { useTheme } from "../hooks/useTheme";
 import colourfulLogo from "/colourfull logo.png";
 import goldLogo from "/Gold logo.png";
+
+type ImportErrorResponse = {
+  message?: string;
+  errors?: Record<string, string[]>;
+};
 
 const MembersTable: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const { list: members } = useSelector((state: RootState) => state.members);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   // State management
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -74,6 +79,7 @@ const MembersTable: React.FC = () => {
 
   // Modal state
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     const initializeMembers = async () => {
@@ -184,30 +190,26 @@ const MembersTable: React.FC = () => {
   };
 
   const handleDeleteMember = async (member: Member) => {
-    if (
-      window.confirm(t("members.deleteConfirmation", { name: member.fullName }))
-    ) {
-      // Save current state to history before deleting
-      saveToHistory(members);
+    // Save current state to history before deleting
+    saveToHistory(members);
 
-      try {
-        await dispatch(deleteMember(member.id)).unwrap();
+    try {
+      await dispatch(deleteMember(member.id)).unwrap();
 
-        // Track activity after successful delete
-        trackMemberActivity('delete', member);
+      // Track activity after successful delete
+      trackMemberActivity("delete", member);
 
-        addToast({
-          title: t("common.success"),
-          message: t("members.deleteSuccess", { name: member.fullName }),
-          type: "success",
-        });
-      } catch {
-        addToast({
-          title: t("common.error"),
-          message: t("members.deleteError"),
-          type: "error",
-        });
-      }
+      addToast({
+        title: t("common.success"),
+        message: t("members.deleteSuccess", { name: member.fullName }),
+        type: "success",
+      });
+    } catch {
+      addToast({
+        title: t("common.error"),
+        message: t("members.deleteError"),
+        type: "error",
+      });
     }
   };
 
@@ -299,6 +301,58 @@ const MembersTable: React.FC = () => {
     }
   };
 
+  const handleImportButtonClick = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportMembers = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+
+    try {
+      const result = await importMembersExcel(file);
+
+      const hasChanges = (result.inserted ?? 0) > 0 || (result.updated ?? 0) > 0;
+      if (hasChanges) {
+        saveToHistory(members);
+        await dispatch(getMembers()).unwrap();
+      }
+
+      const toastIsSuccess = (result.inserted ?? 0) > 0;
+      addToast({
+        title: toastIsSuccess ? t("common.success") : t("common.error"),
+        message: t("members.importSummary", {
+          inserted: result.inserted ?? 0,
+          failed: result.failed ?? 0,
+        }),
+        type: toastIsSuccess ? "success" : "error",
+      });
+    } catch (error) {
+      const axiosError = error as AxiosError<ImportErrorResponse>;
+      const responseData = axiosError.response?.data;
+      const fileError = Array.isArray(responseData?.errors?.file)
+        ? responseData?.errors?.file[0]
+        : null;
+
+      let message = fileError ?? responseData?.message ?? t("members.importError");
+      if (!responseData && error instanceof Error && error.message) {
+        message = error.message;
+      }
+
+      addToast({
+        title: t("common.error"),
+        message,
+        type: "error",
+      });
+    } finally {
+      setIsImporting(false);
+      event.target.value = "";
+    }
+  };
+
   // Undo/Redo functions
   const saveToHistory = (newMembers: Member[]) => {
     const newHistory = history.slice(0, currentHistoryIndex + 1);
@@ -381,6 +435,13 @@ const MembersTable: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:space-x-3">
+                  <input
+                    type="file"
+                    ref={importInputRef}
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={handleImportMembers}
+                  />
                   <Button
                     variant="outline"
                     onClick={handleUndo}
@@ -398,6 +459,15 @@ const MembersTable: React.FC = () => {
                     disabled={currentHistoryIndex >= history.length - 1}
                   >
                     {t("common.redo")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleImportButtonClick}
+                    isLoading={isImporting}
+                    leftIcon={<Download className="h-5 w-5" />}
+                    className="w-full sm:w-auto"
+                  >
+                    {t("common.import")}
                   </Button>
                   <Button
                     variant="outline"

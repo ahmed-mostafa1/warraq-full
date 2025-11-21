@@ -270,6 +270,8 @@
     "bulkDeleteError": "An error occurred while deleting the selected members",
     "exportSuccess": "Successfully exported {{count}} members to Excel",
     "exportError": "An error occurred while exporting the data",
+    "importSummary": "{{inserted}} members added successfully. {{failed}} rows were skipped due to errors.",
+    "importError": "Failed to import members. Please verify the template and try again.",
     "updateSuccessWithName": "Member {{name}} details updated successfully",
     "updateDuplicateError": "Error updating member details - data may be duplicated",
     "addSuccessWithName": "Member {{name}} added successfully",

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import type { AxiosError } from "axios";
+import { useTranslation } from "react-i18next";
 import Sidebar from "../components/Sidebar";
 import TopNav from "../components/TopNav";
 import Card from "../components/ui/Card";
@@ -11,10 +13,11 @@ import {
   listMembers,
   deleteMember as deleteMemberApi,
   exportMembersExcel,
+  importMembersExcel,
   type ApiMember,
   type MembersQueryParams,
 } from "../services/members";
-import { Eye, Edit, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, Edit, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { restoreMembers } from "../slices/membersSlice";
 import {
   normalizeMembershipType,
@@ -22,6 +25,7 @@ import {
   type Member,
 } from "../types/member";
 import type { AppDispatch } from "../store";
+import { useToastContext } from "../hooks/useToastContext";
 
 type TableRow = ApiMember;
 
@@ -39,9 +43,12 @@ type FilterKey =
 const MembersPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { t } = useTranslation();
+  const { addToast } = useToastContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allRows, setAllRows] = useState<TableRow[]>([]);
   const [rows, setRows] = useState<TableRow[]>([]);
@@ -51,6 +58,7 @@ const MembersPage = () => {
     "all",
   );
   const initialLoadRef = useRef(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const filterOptions = useMemo(
     () => [
       { value: "all", label: "بحث شامل" },
@@ -198,6 +206,50 @@ const MembersPage = () => {
     };
   }, [currentQueryParams, load]);
 
+  type ImportErrorResponse = {
+    message?: string;
+    errors?: Record<string, string[]>;
+  };
+
+  const handleImportMembers = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+
+    try {
+      const result = await importMembersExcel(file);
+      await load(currentQueryParams);
+
+      const inserted = result.inserted ?? 0;
+      const failed = result.failed ?? 0;
+      const success = inserted > 0;
+
+      addToast({
+        title: success ? t("common.success") : t("common.error"),
+        message: t("members.importSummary", { inserted, failed }),
+        type: success ? "success" : "error",
+      });
+    } catch (error) {
+      const axiosError = error as AxiosError<ImportErrorResponse>;
+      const responseData = axiosError.response?.data;
+      const fileError = responseData?.errors?.file?.[0];
+      addToast({
+        title: t("common.error"),
+        message: fileError ?? responseData?.message ?? t("members.importError"),
+        type: "error",
+      });
+    } finally {
+      setIsImporting(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
   useEffect(() => {
     const start = (page - 1) * PAGE_SIZE;
     setRows(allRows.slice(start, start + PAGE_SIZE));
@@ -290,6 +342,24 @@ const MembersPage = () => {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="file"
+                  ref={importInputRef}
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={handleImportMembers}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex items-center gap-2 whitespace-nowrap"
+                  onClick={handleImportClick}
+                  isLoading={isImporting}
+                  leftIcon={<Download className="h-4 w-4" />}
+                  disabled={isLoading}
+                >
+                  {isImporting ? t("common.loading") : t("common.import")}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
